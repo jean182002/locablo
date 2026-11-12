@@ -1,7 +1,15 @@
-// Locablo — los huesos.
+// Locablo — los huesos, versión multiempresa.
 // Este Worker recibe todas las visitas de locablo.com y de *.locablo.com.
 // Lee el subdominio de la dirección, busca ese negocio en la base D1
-// y muestra su página. Cada negocio solo ve lo suyo.
+// y muestra su página.
+//
+// Cómo se organiza todo:
+// - users: las personas (correo + contraseña).
+// - businesses: los negocios (nombre + subdominio).
+// - memberships: quién pertenece a cada negocio y con qué rol
+//   ('owner' es el dueño, 'collaborator' es un colaborador).
+// Un usuario puede tener varios negocios y un negocio varios usuarios.
+// Nadie ve ni cambia un negocio del que no es miembro.
 
 // ---------- Ayudas ----------
 
@@ -14,6 +22,12 @@ function aSubdominio(nombre) {
     .replace(/[^a-z0-9]+/g, "-") // lo demás se vuelve guion
     .replace(/^-+|-+$/g, "") // sin guiones al inicio ni al final
     .slice(0, 63); // un subdominio no pasa de 63 letras
+}
+
+// Normaliza un correo: sin espacios y en minúsculas. Así
+// "  Juan@Ejemplo.COM  " y "juan@ejemplo.com" son la misma cuenta.
+function normalizarEmail(email) {
+  return (email || "").trim().toLowerCase();
 }
 
 // Escapa texto para ponerlo en HTML sin romper la página.
@@ -82,6 +96,69 @@ async function usuarioDeSesion(peticion, env) {
   return fila.user_id;
 }
 
+// La cookie de sesión. En la computadora (http) NO puede llevar Secure,
+// porque el navegador la ignoraría. En internet (https) sí lo lleva.
+function cookieSesion(token, peticion) {
+  const url = new URL(peticion.url);
+  const esLocal = url.hostname === "localhost" || url.hostname.endsWith(".localhost");
+  const seguro = esLocal ? "" : "; Secure";
+  return `sesion=${token}; Path=/; HttpOnly${seguro}; SameSite=Lax; Max-Age=604800`;
+}
+
+// La cookie para borrar la sesión al salir (misma regla que arriba).
+function cookieBorrar(peticion) {
+  const url = new URL(peticion.url);
+  const esLocal = url.hostname === "localhost" || url.hostname.endsWith(".localhost");
+  const seguro = esLocal ? "" : "; Secure";
+  return `sesion=; Path=/; HttpOnly${seguro}; SameSite=Lax; Max-Age=0`;
+}
+
+// ---------- Membresías y subdominios reservados ----------
+
+// Nombres que nadie puede registrar como negocio (www, api, admin...).
+// Es el respaldo por si la tabla reserved_subdomains aún no existe
+// en la base (por ejemplo, antes de aplicar la migración 002).
+const RESERVADOS_RESPALDO = [
+  "www", "api", "admin", "app", "mail",
+  "locablo", "editor", "login", "registro",
+];
+
+// ¿Está reservado este subdominio? Un nombre reservado nunca está libre.
+async function esReservado(subdominio, env) {
+  try {
+    const fila = await env.DB.prepare(
+      "SELECT name FROM reserved_subdomains WHERE name = ?"
+    ).bind(subdominio).first();
+    return !!fila;
+  } catch {
+    // La tabla aún no existe: usar la lista corta del código.
+    return RESERVADOS_RESPALDO.includes(subdominio);
+  }
+}
+
+// ¿Es miembro este usuario de este negocio? Devuelve su rol
+// ('owner' o 'collaborator') o nada si no es miembro.
+// TODA lectura o escritura con alcance de negocio pasa por aquí.
+async function esMiembro(env, userId, businessId) {
+  const fila = await env.DB.prepare(
+    "SELECT role FROM memberships WHERE user_id = ? AND business_id = ?"
+  ).bind(userId, businessId).first();
+  return fila ? fila.role : null;
+}
+
+// Los negocios de un usuario, con su rol en cada uno,
+// del más viejo al más nuevo.
+async function misNegocios(env, userId) {
+  const res = await env.DB.prepare(
+    `SELECT b.id, b.name, b.subdomain, m.role, b.created_at
+     FROM businesses b
+     JOIN memberships m ON m.business_id = b.id
+     WHERE m.user_id = ?
+     ORDER BY b.created_at ASC, b.name ASC`
+  ).bind(userId).all();
+  return res.results || [];
+}
+
 // Convierte las piezas de un negocio en HTML sencillo.
 function piezasAHtml(piezas) {
   if (!piezas || piezas.length === 0) {
@@ -120,16 +197,15 @@ function json(obj, status = 200, headers = {}) {
   });
 }
 
-function cookieSesion(token) {
-  return `sesion=${token}; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=604800`;
-}
-
 async function api(peticion, env, url) {
   // ¿Está libre este subdominio?
   if (url.pathname === "/api/disponible" && peticion.method === "POST") {
     const { subdomain } = await peticion.json();
     const limpio = aSubdominio(subdomain || "");
     if (!limpio) return json({ libre: false, motivo: "Escribe un nombre válido." });
+    if (await esReservado(limpio, env)) {
+      return json({ libre: false, motivo: "Ese nombre está reservado.", subdomain: limpio });
+    }
     const fila = await env.DB.prepare(
       "SELECT id FROM businesses WHERE subdomain = ?"
     ).bind(limpio).first();
@@ -139,18 +215,22 @@ async function api(peticion, env, url) {
   // Crear cuenta + negocio y apartar el subdominio. Todo junto o nada.
   if (url.pathname === "/api/registro" && peticion.method === "POST") {
     const { email, password, name } = await peticion.json();
+    const correo = normalizarEmail(email);
     const subdomain = aSubdominio(name || "");
-    if (!email || !password || password.length < 8) {
+    if (!correo || !password || password.length < 8) {
       return json({ error: "Falta el correo o la contraseña (mínimo 8 caracteres)." }, 400);
     }
     if (!subdomain) return json({ error: "Ese nombre no sirve para subdominio." }, 400);
+    if (await esReservado(subdomain, env)) {
+      return json({ error: "Ese nombre está reservado. Elige otro." }, 400);
+    }
     const ocupado = await env.DB.prepare(
       "SELECT id FROM businesses WHERE subdomain = ?"
     ).bind(subdomain).first();
     if (ocupado) return json({ error: "Ese subdominio ya está ocupado. Elige otro." }, 409);
     const existe = await env.DB.prepare(
       "SELECT id FROM users WHERE email = ?"
-    ).bind(email).first();
+    ).bind(correo).first();
     if (existe) return json({ error: "Ese correo ya tiene cuenta. Entra con tu contraseña." }, 409);
 
     const userId = nuevoId();
@@ -158,44 +238,104 @@ async function api(peticion, env, url) {
     const hash = await hashContrasena(password);
     await env.DB.batch([
       env.DB.prepare("INSERT INTO users (id, email, password_hash) VALUES (?, ?, ?)")
-        .bind(userId, email, hash),
-      env.DB.prepare("INSERT INTO businesses (id, owner_id, name, subdomain) VALUES (?, ?, ?, ?)")
-        .bind(negocioId, userId, name, subdomain),
+        .bind(userId, correo, hash),
+      env.DB.prepare("INSERT INTO businesses (id, name, subdomain) VALUES (?, ?, ?)")
+        .bind(negocioId, name, subdomain),
+      env.DB.prepare("INSERT INTO memberships (id, user_id, business_id, role) VALUES (?, ?, ?, 'owner')")
+        .bind(nuevoId(), userId, negocioId),
     ]);
     const token = await crearSesion(env, userId);
-    return json({ ok: true, subdomain }, 201, { "Set-Cookie": cookieSesion(token) });
+    return json({ ok: true, subdomain }, 201, { "Set-Cookie": cookieSesion(token, peticion) });
   }
 
   // Entrar con correo y contraseña.
   if (url.pathname === "/api/login" && peticion.method === "POST") {
     const { email, password } = await peticion.json();
+    const correo = normalizarEmail(email);
     const user = await env.DB.prepare(
       "SELECT id, password_hash FROM users WHERE email = ?"
-    ).bind(email).first();
+    ).bind(correo).first();
     if (!user) return json({ error: "Correo o contraseña incorrectos." }, 401);
     const ok = await verificaContrasena(password, user.password_hash);
     if (!ok) return json({ error: "Correo o contraseña incorrectos." }, 401);
     const token = await crearSesion(env, user.id);
-    const negocio = await env.DB.prepare(
-      "SELECT subdomain FROM businesses WHERE owner_id = ?"
-    ).bind(user.id).first();
-    return json({ ok: true, subdomain: negocio ? negocio.subdomain : null }, 200, {
-      "Set-Cookie": cookieSesion(token),
+    const negocios = await misNegocios(env, user.id);
+    const lista = negocios.map((n) => ({
+      id: n.id, name: n.name, subdomain: n.subdomain, role: n.role,
+    }));
+    return json({
+      ok: true,
+      negocios: lista,
+      // Se conserva por compatibilidad: el subdominio del primer negocio.
+      subdomain: lista.length > 0 ? lista[0].subdomain : null,
+    }, 200, { "Set-Cookie": cookieSesion(token, peticion) });
+  }
+
+  // Los negocios del usuario que entró, con su rol en cada uno.
+  if (url.pathname === "/api/mis-negocios" && peticion.method === "GET") {
+    const userId = await usuarioDeSesion(peticion, env);
+    if (!userId) return json({ error: "Entra primero con tu cuenta." }, 401);
+    const negocios = await misNegocios(env, userId);
+    return json({
+      negocios: negocios.map((n) => ({
+        id: n.id, name: n.name, subdomain: n.subdomain, role: n.role,
+      })),
     });
   }
 
-  // El negocio del dueño que está dentro. Sin sesión, no se muestra nada.
+  // El negocio del usuario que entró. Sin sesión, no se muestra nada.
+  // Con ?business_id= pide un negocio en concreto: si el usuario no es
+  // miembro de ese negocio, se le niega (403). Sin el parámetro,
+  // devuelve su primer negocio por fecha de creación.
   if (url.pathname === "/api/mi-negocio" && peticion.method === "GET") {
     const userId = await usuarioDeSesion(peticion, env);
     if (!userId) return json({ error: "Entra primero con tu cuenta." }, 401);
-    const negocio = await env.DB.prepare(
-      "SELECT id, name, subdomain FROM businesses WHERE owner_id = ?"
-    ).bind(userId).first();
+    const businessId = url.searchParams.get("business_id");
+    let negocio = null;
+    if (businessId) {
+      const rol = await esMiembro(env, userId, businessId);
+      if (!rol) return json({ error: "No tienes acceso a este negocio." }, 403);
+      negocio = await env.DB.prepare(
+        "SELECT id, name, subdomain FROM businesses WHERE id = ?"
+      ).bind(businessId).first();
+    } else {
+      const negocios = await misNegocios(env, userId);
+      if (negocios.length > 0) {
+        negocio = { id: negocios[0].id, name: negocios[0].name, subdomain: negocios[0].subdomain };
+      }
+    }
     if (!negocio) return json({ error: "No tienes negocio todavía." }, 404);
     const piezas = await env.DB.prepare(
       "SELECT id, type, content, position FROM pieces WHERE business_id = ? ORDER BY position ASC"
     ).bind(negocio.id).all();
     return json({ negocio, piezas: piezas.results || [] });
+  }
+
+  // Crear un negocio más para el usuario que entró (queda como dueño).
+  if (url.pathname === "/api/negocios" && peticion.method === "POST") {
+    const userId = await usuarioDeSesion(peticion, env);
+    if (!userId) return json({ error: "Entra primero con tu cuenta." }, 401);
+    const { name } = await peticion.json();
+    const subdomain = aSubdominio(name || "");
+    if (!subdomain) return json({ error: "Ese nombre no sirve para subdominio." }, 400);
+    if (await esReservado(subdomain, env)) {
+      return json({ error: "Ese nombre está reservado. Elige otro." }, 400);
+    }
+    const ocupado = await env.DB.prepare(
+      "SELECT id FROM businesses WHERE subdomain = ?"
+    ).bind(subdomain).first();
+    if (ocupado) return json({ error: "Ese subdominio ya está ocupado. Elige otro." }, 409);
+    const negocioId = nuevoId();
+    await env.DB.batch([
+      env.DB.prepare("INSERT INTO businesses (id, name, subdomain) VALUES (?, ?, ?)")
+        .bind(negocioId, name, subdomain),
+      env.DB.prepare("INSERT INTO memberships (id, user_id, business_id, role) VALUES (?, ?, ?, 'owner')")
+        .bind(nuevoId(), userId, negocioId),
+    ]);
+    return json({
+      ok: true,
+      negocio: { id: negocioId, name, subdomain, role: "owner" },
+    }, 201);
   }
 
   // Salir: se borra la sesión.
@@ -206,7 +346,7 @@ async function api(peticion, env, url) {
       await env.DB.prepare("DELETE FROM sessions WHERE token = ?").bind(token).run();
     }
     return json({ ok: true }, 200, {
-      "Set-Cookie": "sesion=; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=0",
+      "Set-Cookie": cookieBorrar(peticion),
     });
   }
 

@@ -24,3 +24,6 @@ run_worker_first = true
 binding = "DB"
 database_name = "locablo"
 database_id = "PONER-AQUI-EL-ID-DE-LA-BASE-D1"
+# Las migraciones viven en la carpeta migrations/ y se aplican con:
+#   npx wrangler d1 migrations apply locablo --local
+migrations_dir = "migrations"
