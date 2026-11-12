@@ -4,9 +4,23 @@ name = "locablo"
 main = "src/worker.js"
 compatibility_date = "2026-11-11"
 
+# Ruta para todos los subdominios: tienda1.locablo.com, taqueria.locablo.com...
+# La zona locablo.com tiene que estar en Cloudflare (nameservers apuntados).
+# OJO: las rutas van aquí arriba, en el nivel principal. Si se ponen debajo
+# de [[d1_databases]], Cloudflare las ignora y los subdominios no llegan.
+routes = [
+  { pattern = "*.locablo.com/*", zone_name = "locablo.com" },
+  { pattern = "locablo.com/*", zone_name = "locablo.com" }
+]
+
 # Archivos públicos (la página principal, la plantilla y el editor).
+# run_worker_first = true es obligatorio: el Worker tiene que decidir
+# primero qué mostrar (la página principal o la página de un negocio).
+# Sin esto, Cloudflare sirve la página principal hasta en los subdominios.
 [assets]
 directory = "./public"
+binding = "ASSETS"
+run_worker_first = true
 
 # Base de datos D1.
 # OJO: el database_id se llena después de crear la base con:
@@ -15,10 +29,3 @@ directory = "./public"
 binding = "DB"
 database_name = "locablo"
 database_id = "PONER-AQUI-EL-ID-DE-LA-BASE-D1"
-
-# Ruta para todos los subdominios: tienda1.locablo.com, taqueria.locablo.com...
-# La zona locablo.com tiene que estar en Cloudflare (nameservers apuntados).
-routes = [
-  { pattern = "*.locablo.com/*", zone_name = "locablo.com" },
-  { pattern = "locablo.com/*", zone_name = "locablo.com" }
-]

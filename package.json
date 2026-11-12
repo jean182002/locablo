@@ -1,0 +1,1 @@
+{"description":"Locablo: páginas web para negocios locales, cada una con su subdominio.","devDependencies":{"wrangler":"^4.160.1"},"name":"locablo","private":true,"scripts":{"deploy":"wrangler deploy","dev":"wrangler dev --config wrangler.local.toml --port 8787"},"version":"0.1.0"}

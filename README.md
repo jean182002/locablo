@@ -41,6 +41,34 @@ nombre de su negocio, consigue su subdominio (por ejemplo
 - El subdominio es único en la base de datos: no se puede crear dos
   veces.
 
+## Probar en tu computadora (sin publicar nada)
+
+Todo esto es local: lo que hagas aquí no sale a internet y no toca el
+sitio real. La base local es aparte de la base real.
+
+1. Instalar [Node.js](https://nodejs.org) (versión LTS) y
+   [Git](https://git-scm.com).
+2. Descargar el repo:
+   `git clone https://github.com/jean182002/locablo.git`
+3. Entrar a la carpeta e instalar:
+   `cd locablo` y `npm install`
+4. Crear las tablas en la base local:
+   `npx wrangler d1 execute locablo --local --file=schema.sql`
+5. Prender el servidor:
+   `npm run dev`
+   (usa `wrangler.local.toml`, que es igual pero sin las rutas: con las
+   rutas puestas, el servidor local reescribe la dirección y no deja
+   probar los subdominios. El archivo que se despliega es
+   `wrangler.toml`, con las rutas, y ese no se toca.)
+6. Abrir http://localhost:8787 en el navegador: escribe un nombre,
+   revisa que el subdominio esté libre, regístrate y entra al editor.
+7. Para ver la página del negocio que creaste:
+   http://taqueria-el-guero.localhost:8787 (cambia el nombre por el tuyo).
+   Si tu computadora no abre esa dirección, es porque no resuelve
+   subdominios de localhost; el resto de la prueba igual funciona.
+
+Para apagar el servidor: Ctrl + C en la terminal.
+
 ## Cómo desplegar (se hace el viernes/sábado, con la cuenta de Jean)
 
 1. Crear una cuenta gratis en Cloudflare (no pide tarjeta).

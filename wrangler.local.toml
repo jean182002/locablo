@@ -1,0 +1,26 @@
+# Configuración de Cloudflare para Locablo.
+# Nombre del Worker y de la aplicación.
+name = "locablo"
+main = "src/worker.js"
+compatibility_date = "2026-11-11"
+
+# Sin rutas: en local, wrangler dev usa la dirección real (localhost)
+# y así se pueden probar los subdominios con <negocio>.localhost.
+# Las rutas viven solo en wrangler.toml, que es el que se despliega.
+
+# Archivos públicos (la página principal, la plantilla y el editor).
+# run_worker_first = true es obligatorio: el Worker tiene que decidir
+# primero qué mostrar (la página principal o la página de un negocio).
+# Sin esto, Cloudflare sirve la página principal hasta en los subdominios.
+[assets]
+directory = "./public"
+binding = "ASSETS"
+run_worker_first = true
+
+# Base de datos D1.
+# OJO: el database_id se llena después de crear la base con:
+#   npx wrangler d1 create locablo
+[[d1_databases]]
+binding = "DB"
+database_name = "locablo"
+database_id = "PONER-AQUI-EL-ID-DE-LA-BASE-D1"

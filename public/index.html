@@ -97,7 +97,7 @@
       });
       const dato = await resp.json();
       if (!resp.ok) { mensaje.textContent = dato.error || "No se pudo crear tu página."; return; }
-      window.location.href = "https://locablo.com/editor";
+      window.location.href = "/editor";
     } catch (e) {
       mensaje.textContent = "No se pudo conectar con el servidor. Inténtalo de nuevo.";
     }
@@ -118,7 +118,7 @@
       });
       const dato = await resp.json();
       if (!resp.ok) { mensaje2.textContent = dato.error || "No se pudo entrar."; return; }
-      window.location.href = "https://locablo.com/editor";
+      window.location.href = "/editor";
     } catch (e) {
       mensaje2.textContent = "No se pudo conectar con el servidor. Inténtalo de nuevo.";
     }

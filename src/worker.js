@@ -225,20 +225,25 @@ export default {
       return await api(peticion, env, url);
     }
 
+    // En la computadora, localhost funciona igual que locablo.com:
+    // localhost es la página principal y tienda1.localhost es un negocio.
+    const esLocal = host === "localhost" || host.endsWith(".localhost");
+    const dominio = esLocal ? "localhost" : "locablo.com";
+
     // La página principal: locablo.com
-    if (host === "locablo.com" || host === "www.locablo.com") {
+    if (host === dominio || host === "www." + dominio) {
       // El editor pide sesión; sin ella, vuelve a la página principal.
       if (url.pathname === "/editor") {
         const userId = await usuarioDeSesion(peticion, env);
-        if (!userId) return Response.redirect("https://" + host + "/", 302);
-        return env.ASSETS.fetch(new Request(url.origin + "/editor.html", peticion));
+        if (!userId) return Response.redirect(new URL("/", peticion.url), 302);
+        return env.ASSETS.fetch(new Request(url.origin + "/editor.html"));
       }
       return env.ASSETS.fetch(peticion);
     }
 
     // Un subdominio: tienda1.locablo.com
-    if (host.endsWith(".locablo.com")) {
-      const subdominio = host.slice(0, -".locablo.com".length);
+    if (host.endsWith("." + dominio)) {
+      const subdominio = host.slice(0, -("." + dominio).length);
       const negocio = await env.DB.prepare(
         "SELECT id, name, subdomain FROM businesses WHERE subdomain = ?"
       ).bind(subdominio).first();

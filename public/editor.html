@@ -28,7 +28,12 @@
     .then((dato) => {
       document.getElementById("titulo").textContent = "Editor de " + dato.negocio.name;
       document.getElementById("direccion").textContent = dato.negocio.subdomain + ".locablo.com";
-      document.getElementById("ver").href = "https://" + dato.negocio.subdomain + ".locablo.com";
+      // En la computadora, la página se ve en <subdominio>.localhost;
+      // en internet, en <subdominio>.locablo.com.
+      const esLocal = location.hostname === "localhost" || location.hostname.endsWith(".localhost");
+      document.getElementById("ver").href = esLocal
+        ? "http://" + dato.negocio.subdomain + ".localhost:" + location.port
+        : "https://" + dato.negocio.subdomain + ".locablo.com";
       const lista = document.getElementById("piezas");
       if (!dato.piezas.length) {
         lista.innerHTML = "<li>Todavía no tienes piezas. Se agregan en el siguiente paso.</li>";
