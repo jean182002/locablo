@@ -1,0 +1,128 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Locablo — Tu negocio en internet</title>
+<style>
+  /* CSS simple, sin nada pesado */
+  body { font-family: system-ui, sans-serif; margin: 0; padding: 24px; color: #222; }
+  main { max-width: 560px; margin: 0 auto; }
+  h1 { font-size: 28px; }
+  label { display: block; margin: 16px 0 6px; font-weight: bold; }
+  input { width: 100%; padding: 12px; font-size: 16px; border: 1px solid #999; border-radius: 8px; box-sizing: border-box; }
+  button { margin-top: 16px; padding: 12px 20px; font-size: 16px; border: 0; border-radius: 8px; background: #0a7a3d; color: #fff; }
+  .vista { margin-top: 12px; padding: 12px; background: #f2f2f2; border-radius: 8px; }
+  .libre { color: #0a7a3d; font-weight: bold; }
+  .ocupado { color: #b00020; font-weight: bold; }
+  .error { color: #b00020; }
+</style>
+</head>
+<body>
+<main>
+  <h1>Locablo</h1>
+  <p>Arma tu página como armas tu negocio: ves la idea, eliges tus piezas, las acomodas con la mano y ya quedó.</p>
+
+  <label for="nombre">Nombre de tu negocio</label>
+  <input id="nombre" type="text" placeholder="Por ejemplo: Taquería El Güero" autocomplete="off">
+  <div class="vista" id="vista">Escribe el nombre y aquí verás tu dirección.</div>
+
+  <form id="registro">
+    <label for="correo">Correo</label>
+    <input id="correo" type="email" required placeholder="tucorreo@ejemplo.com">
+    <label for="contrasena">Contraseña (mínimo 8 caracteres)</label>
+    <input id="contrasena" type="password" required minlength="8">
+    <p id="mensaje" class="error"></p>
+    <button type="submit">Crear mi página</button>
+  </form>
+
+  <h2>¿Ya tienes cuenta?</h2>
+  <form id="login">
+    <label for="correo2">Correo</label>
+    <input id="correo2" type="email" required>
+    <label for="contrasena2">Contraseña</label>
+    <input id="contrasena2" type="password" required>
+    <p id="mensaje2" class="error"></p>
+    <button type="submit">Entrar a mi editor</button>
+  </form>
+</main>
+<script>
+  // Convierte el nombre en subdominio: minúsculas, sin acentos, guiones.
+  function aSubdominio(nombre) {
+    return (nombre || "").toLowerCase()
+      .normalize("NFD").replace(/[\u0300-\u036f]/g, "")
+      .replace(/[^a-z0-9]+/g, "-")
+      .replace(/^-+|-+$/g, "").slice(0, 63);
+  }
+  const campo = document.getElementById("nombre");
+  const vista = document.getElementById("vista");
+  const mensaje = document.getElementById("mensaje");
+  let subdominio = "";
+  let tiempo = null;
+
+  campo.addEventListener("input", () => {
+    subdominio = aSubdominio(campo.value);
+    if (!subdominio) { vista.textContent = "Escribe el nombre y aquí verás tu dirección."; return; }
+    vista.innerHTML = "Tu dirección será: <b>" + subdominio + ".locablo.com</b><br>Revisando si está libre…";
+    clearTimeout(tiempo);
+    tiempo = setTimeout(async () => {
+      try {
+        const resp = await fetch("/api/disponible", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ subdomain: subdominio })
+        });
+        const dato = await resp.json();
+        vista.innerHTML = dato.libre
+          ? "Tu dirección será: <b>" + dato.subdomain + ".locablo.com</b><br><span class='libre'>Está libre.</span>"
+          : "Tu dirección sería: <b>" + dato.subdomain + ".locablo.com</b><br><span class='ocupado'>Ya está ocupado. Prueba con otro nombre.</span>";
+      } catch (e) {
+        vista.innerHTML = "Tu dirección será: <b>" + subdominio + ".locablo.com</b><br>(Aún no está conectado el servidor para revisar si está libre.)";
+      }
+    }, 500);
+  });
+
+  document.getElementById("registro").addEventListener("submit", async (ev) => {
+    ev.preventDefault();
+    mensaje.textContent = "";
+    try {
+      const resp = await fetch("/api/registro", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          email: document.getElementById("correo").value,
+          password: document.getElementById("contrasena").value,
+          name: campo.value
+        })
+      });
+      const dato = await resp.json();
+      if (!resp.ok) { mensaje.textContent = dato.error || "No se pudo crear tu página."; return; }
+      window.location.href = "https://locablo.com/editor";
+    } catch (e) {
+      mensaje.textContent = "No se pudo conectar con el servidor. Inténtalo de nuevo.";
+    }
+  });
+
+  document.getElementById("login").addEventListener("submit", async (ev) => {
+    ev.preventDefault();
+    const mensaje2 = document.getElementById("mensaje2");
+    mensaje2.textContent = "";
+    try {
+      const resp = await fetch("/api/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          email: document.getElementById("correo2").value,
+          password: document.getElementById("contrasena2").value
+        })
+      });
+      const dato = await resp.json();
+      if (!resp.ok) { mensaje2.textContent = dato.error || "No se pudo entrar."; return; }
+      window.location.href = "https://locablo.com/editor";
+    } catch (e) {
+      mensaje2.textContent = "No se pudo conectar con el servidor. Inténtalo de nuevo.";
+    }
+  });
+</script>
+</body>
+</html>

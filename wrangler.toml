@@ -1,0 +1,24 @@
+# Configuración de Cloudflare para Locablo.
+# Nombre del Worker y de la aplicación.
+name = "locablo"
+main = "src/worker.js"
+compatibility_date = "2026-11-11"
+
+# Archivos públicos (la página principal, la plantilla y el editor).
+[assets]
+directory = "./public"
+
+# Base de datos D1.
+# OJO: el database_id se llena después de crear la base con:
+#   npx wrangler d1 create locablo
+[[d1_databases]]
+binding = "DB"
+database_name = "locablo"
+database_id = "PONER-AQUI-EL-ID-DE-LA-BASE-D1"
+
+# Ruta para todos los subdominios: tienda1.locablo.com, taqueria.locablo.com...
+# La zona locablo.com tiene que estar en Cloudflare (nameservers apuntados).
+routes = [
+  { pattern = "*.locablo.com/*", zone_name = "locablo.com" },
+  { pattern = "locablo.com/*", zone_name = "locablo.com" }
+]
