@@ -146,6 +146,12 @@ async function esMiembro(env, userId, businessId) {
   return fila ? fila.role : null;
 }
 
+// Límite de negocios por usuario: preparado, no se impone todavía.
+// Cuando se decida aplicarlo, POST /api/negocios revisará cuántos
+// negocios tiene el usuario antes de crear uno nuevo. Por ahora solo
+// se informa en GET /api/mis-negocios, como `limite_maximo`.
+const LIMITE_NEGOCIOS_POR_USUARIO = 5;
+
 // Los negocios de un usuario, con su rol en cada uno,
 // del más viejo al más nuevo.
 async function misNegocios(env, userId) {
@@ -280,6 +286,8 @@ async function api(peticion, env, url) {
       negocios: negocios.map((n) => ({
         id: n.id, name: n.name, subdomain: n.subdomain, role: n.role,
       })),
+      // Límite preparado, no se impone todavía (ver la constante arriba).
+      limite_maximo: LIMITE_NEGOCIOS_POR_USUARIO,
     });
   }
 
@@ -336,6 +344,33 @@ async function api(peticion, env, url) {
       ok: true,
       negocio: { id: negocioId, name, subdomain, role: "owner" },
     }, 201);
+  }
+
+  // Eliminar un negocio (DELETE /api/negocios/<id>). Solo su dueño
+  // (rol 'owner') puede hacerlo; un colaborador o alguien de fuera
+  // recibe 403. Se borran en un solo batch las piezas del negocio,
+  // sus membresías y el negocio. La cuenta del usuario y sus demás
+  // negocios no se tocan. Se puede eliminar el último negocio.
+  // Si se llama dos veces, la segunda da 404 porque ya no existe.
+  if (url.pathname.startsWith("/api/negocios/") && peticion.method === "DELETE") {
+    const userId = await usuarioDeSesion(peticion, env);
+    if (!userId) return json({ error: "Entra primero con tu cuenta." }, 401);
+    const businessId = decodeURIComponent(url.pathname.slice("/api/negocios/".length));
+    if (!businessId) return json({ error: "Falta el negocio." }, 400);
+    const negocio = await env.DB.prepare(
+      "SELECT id FROM businesses WHERE id = ?"
+    ).bind(businessId).first();
+    if (!negocio) return json({ error: "Ese negocio no existe." }, 404);
+    const rol = await esMiembro(env, userId, businessId);
+    if (rol !== "owner") {
+      return json({ error: "Solo el dueño puede eliminar este negocio." }, 403);
+    }
+    await env.DB.batch([
+      env.DB.prepare("DELETE FROM pieces WHERE business_id = ?").bind(businessId),
+      env.DB.prepare("DELETE FROM memberships WHERE business_id = ?").bind(businessId),
+      env.DB.prepare("DELETE FROM businesses WHERE id = ?").bind(businessId),
+    ]);
+    return json({ ok: true });
   }
 
   // Salir: se borra la sesión.

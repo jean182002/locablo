@@ -64,8 +64,49 @@ viven en la tabla `reserved_subdomains`.
 - `public/index.html` — la página principal: el campo del nombre, la
   vista previa del subdominio y el registro.
 - `public/negocio.html` — la plantilla de la página de cada negocio.
-- `public/editor.html` — el esqueleto del editor (agregar, mover y
-  recolorear piezas es el siguiente paso).
+- `public/editor.html` — el editor: "Mis negocios" (listar, cambiar
+  y crear negocios), eliminar con 3 confirmaciones y la lista de
+  piezas. Agregar, mover y recolorear piezas es el siguiente paso.
+
+## Mis negocios en el editor
+
+Desde el editor se pueden administrar todos los negocios de la cuenta,
+sin cerrar sesión:
+
+- **Listar y cambiar:** "Mis negocios" muestra cada negocio con su
+  nombre, su subdominio y su rol (Propietario o Colaborador). Al hacer
+  clic en uno, el editor cambia a ese negocio: título, dirección,
+  piezas y el enlace "Ver mi página" se actualizan. El negocio
+  seleccionado se marca.
+- **Crear negocio:** un formulario dentro del editor, con vista previa
+  del subdominio en vivo y revisión de disponibilidad, igual que en la
+  página principal. Usa la sesión actual, no crea otra cuenta. Al
+  crearse, la lista crece y el negocio nuevo queda seleccionado. Si el
+  subdominio está ocupado o es reservado, se muestra el error del
+  servidor. El botón se deshabilita mientras la petición está en curso,
+  para que no se cree dos veces.
+- **Eliminar negocio:** el botón "Eliminar" solo aparece en los
+  negocios donde el usuario es dueño (owner). Un colaborador no lo ve,
+  y el servidor también lo bloquea (403). Se puede eliminar el último
+  negocio. Al eliminar se borran sus piezas y sus membresías; la cuenta
+  y los demás negocios no se tocan. Eliminar tiene 3 confirmaciones:
+  1. Confirmar la intención: "¿Seguro que quieres eliminar <nombre>?
+     Esto borra su página y sus piezas para siempre."
+  2. Escribir el nombre exacto del negocio (con mayúsculas y espacios
+     tal cual). El botón para seguir solo se activa cuando coincide.
+  3. Espera de 10 segundos con la cuenta atrás ("Eliminando... 10, 9,
+     8…") y un botón "Detener". Si se pulsa "Detener", se cancela todo
+     y no se borra nada. Solo cuando la cuenta atrás llega a 0 se envía
+     el borrado al servidor.
+  Después de eliminar, si quedan otros negocios se selecciona el
+  primero; si era el último, se muestra "No tienes negocios todavía.
+  Crea uno." con el formulario de crear visible.
+
+**Límite de negocios por usuario:** está preparado en el código
+(`LIMITE_NEGOCIOS_POR_USUARIO = 5` en `src/worker.js`) y se informa en
+`GET /api/mis-negocios` como `limite_maximo`, pero **todavía no se
+aplica**: crear negocios no está limitado. Cuando se decida aplicarlo,
+`POST /api/negocios` lo revisará antes de crear uno nuevo.
 
 ## Seguridad (los huesos ya lo tienen en cuenta)
 
@@ -175,6 +216,8 @@ Para apagar el servidor: Ctrl + C en la terminal.
 - Crear la cuenta de Cloudflare y la base D1.
 - Desplegar y probar con un negocio de ejemplo.
 - El editor completo: agregar, mover y recolorear piezas con la mano.
+  (Listar, cambiar, crear y eliminar negocios desde el editor ya está
+  hecho; ver "Mis negocios en el editor".)
 - Mover los nameservers desde Hostinger.
 
 ## Pendiente (no implementado)

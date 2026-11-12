@@ -7,49 +7,355 @@
 <style>
   body { font-family: system-ui, sans-serif; margin: 0; padding: 24px; color: #222; }
   main { max-width: 560px; margin: 0 auto; }
-  ul { padding-left: 20px; }
+  label { display: block; margin: 16px 0 6px; font-weight: bold; }
+  input { width: 100%; padding: 12px; font-size: 16px; border: 1px solid #999; border-radius: 8px; box-sizing: border-box; }
   button { padding: 10px 16px; font-size: 15px; border: 1px solid #999; border-radius: 8px; background: #fff; }
+  button:disabled { opacity: .5; }
+  .vista { margin-top: 12px; padding: 12px; background: #f2f2f2; border-radius: 8px; }
+  .libre { color: #0a7a3d; font-weight: bold; }
+  .ocupado { color: #b00020; font-weight: bold; }
+  .error { color: #b00020; }
   .aviso { padding: 12px; background: #fff4cc; border-radius: 8px; }
+  ul { padding-left: 20px; }
+  #lista-negocios { padding-left: 0; list-style: none; }
+  #lista-negocios li { cursor: pointer; padding: 10px 12px; border-radius: 8px; margin-bottom: 6px; border: 1px solid #ddd; }
+  #lista-negocios li.seleccionado { background: #e6f4ea; border-color: #0a7a3d; font-weight: bold; }
+  .rol { color: #555; font-size: 13px; font-weight: normal; }
+  .panel-eliminar { border: 2px solid #b00020; border-radius: 8px; padding: 16px; margin-top: 16px; background: #fff5f5; }
+  .peligro { border-color: #b00020; color: #b00020; }
+  #cuenta-atras { font-size: 20px; font-weight: bold; }
 </style>
 </head>
 <body>
 <main>
   <h1 id="titulo">Mi editor</h1>
   <p id="direccion"></p>
+
+  <h2>Mis negocios</h2>
+  <ul id="lista-negocios"></ul>
+  <p id="sin-negocios" hidden>No tienes negocios todavía. Crea uno.</p>
+
+  <div id="panel-eliminar" class="panel-eliminar" hidden>
+    <div id="paso-1">
+      <p id="texto-paso-1"></p>
+      <button id="btn-si-eliminar" type="button" class="peligro">Sí, eliminar</button>
+      <button id="btn-cancelar-1" type="button">Cancelar</button>
+    </div>
+    <div id="paso-2" hidden>
+      <p>Para confirmar, escribe el nombre exacto del negocio:</p>
+      <p><b id="nombre-exacto"></b></p>
+      <input id="nombre-confirmar" type="text" autocomplete="off" placeholder="Escribe el nombre exacto">
+      <p id="error-eliminar" class="error"></p>
+      <button id="btn-continuar" type="button" class="peligro" disabled>Continuar</button>
+      <button id="btn-cancelar-2" type="button">Cancelar</button>
+    </div>
+    <div id="paso-3" hidden>
+      <p id="cuenta-atras">Eliminando... 10</p>
+      <button id="btn-detener" type="button">Detener</button>
+    </div>
+  </div>
+
+  <h2>Crear negocio</h2>
+  <form id="form-crear">
+    <label for="nombre-nuevo">Nombre del negocio nuevo</label>
+    <input id="nombre-nuevo" type="text" placeholder="Por ejemplo: Panadería La Esquina" autocomplete="off">
+    <div class="vista" id="vista-nuevo">Escribe el nombre y aquí verás su dirección.</div>
+    <p id="error-crear" class="error"></p>
+    <button id="btn-crear" type="submit">Crear negocio</button>
+  </form>
+
   <h2>Mis piezas</h2>
   <ul id="piezas"></ul>
   <p class="aviso">Agregar, mover y recolorear piezas con la mano es el siguiente paso (viernes/sábado). Por ahora aquí ves tu negocio y sus piezas.</p>
   <p><a id="ver" href="#">Ver mi página</a> · <button id="salir" type="button">Salir</button></p>
 </main>
 <script>
-  // Pide el negocio del dueño que entró. Sin sesión, vuelve a la página principal.
-  fetch("/api/mi-negocio")
-    .then((r) => { if (!r.ok) throw new Error("sin sesión"); return r.json(); })
-    .then((dato) => {
-      document.getElementById("titulo").textContent = "Editor de " + dato.negocio.name;
-      document.getElementById("direccion").textContent = dato.negocio.subdomain + ".locablo.com";
-      // En la computadora, la página se ve en <subdominio>.localhost;
-      // en internet, en <subdominio>.locablo.com.
-      const esLocal = location.hostname === "localhost" || location.hostname.endsWith(".localhost");
-      document.getElementById("ver").href = esLocal
-        ? "http://" + dato.negocio.subdomain + ".localhost:" + location.port
-        : "https://" + dato.negocio.subdomain + ".locablo.com";
-      const lista = document.getElementById("piezas");
-      if (!dato.piezas.length) {
-        lista.innerHTML = "<li>Todavía no tienes piezas. Se agregan en el siguiente paso.</li>";
-      } else {
-        dato.piezas.forEach((p) => {
-          const li = document.createElement("li");
-          let datos = {};
-          try { datos = JSON.parse(p.content); } catch (e) {}
-          li.textContent = p.type + ": " + (datos.texto || datos.url || "");
-          lista.appendChild(li);
-        });
-      }
-    })
-    .catch(() => { window.location.href = "/"; });
+  // Convierte el nombre en subdominio: minúsculas, sin acentos, guiones.
+  function aSubdominio(nombre) {
+    return (nombre || "").toLowerCase()
+      .normalize("NFD").replace(/[\u0300-\u036f]/g, "")
+      .replace(/[^a-z0-9]+/g, "-")
+      .replace(/^-+|-+$/g, "").slice(0, 63);
+  }
 
-  document.getElementById("salir").addEventListener("click", async () => {
+  // La dirección de la página de un negocio: en la computadora es
+  // <subdominio>.localhost; en internet, <subdominio>.locablo.com.
+  function urlNegocio(subdominio) {
+    const esLocal = location.hostname === "localhost" || location.hostname.endsWith(".localhost");
+    return esLocal
+      ? "http://" + subdominio + ".localhost:" + location.port
+      : "https://" + subdominio + ".locablo.com";
+  }
+
+  let negocios = [];
+  let seleccionadoId = null;
+  let creandoEnCurso = false;
+  let borrandoEnCurso = false;
+  let aEliminar = null;       // negocio en proceso de eliminación
+  let temporizador = null;    // el intervalo de la cuenta atrás
+  let segundos = 10;
+
+  const $ = (id) => document.getElementById(id);
+
+  // Carga la lista desde el servidor y la pinta. Sin sesión, vuelve a
+  // la página principal. Si se pasa un id, ese negocio queda seleccionado.
+  async function cargarNegocios(seleccionarId) {
+    const resp = await fetch("/api/mis-negocios");
+    if (!resp.ok) { window.location.href = "/"; return; }
+    const dato = await resp.json();
+    negocios = dato.negocios || [];
+    if (seleccionarId) {
+      seleccionadoId = seleccionarId;
+    } else if (!negocios.some((n) => n.id === seleccionadoId)) {
+      seleccionadoId = negocios.length > 0 ? negocios[0].id : null;
+    }
+    pintarLista();
+    await cargarSeleccionado();
+  }
+
+  // Pinta "Mis negocios": nombre, subdominio y rol. El seleccionado se
+  // marca. El botón Eliminar solo aparece para el dueño (owner).
+  function pintarLista() {
+    const lista = $("lista-negocios");
+    lista.innerHTML = "";
+    $("sin-negocios").hidden = negocios.length > 0;
+    negocios.forEach((n) => {
+      const li = document.createElement("li");
+      if (n.id === seleccionadoId) li.className = "seleccionado";
+      const nombre = document.createElement("span");
+      nombre.textContent = n.name;
+      li.appendChild(nombre);
+      const detalle = document.createElement("span");
+      detalle.className = "rol";
+      detalle.textContent = " — " + n.subdomain + ".locablo.com (" + (n.role === "owner" ? "Propietario" : "Colaborador") + ")";
+      li.appendChild(detalle);
+      if (n.role === "owner") {
+        const btn = document.createElement("button");
+        btn.type = "button";
+        btn.className = "peligro";
+        btn.textContent = "Eliminar";
+        btn.style.marginLeft = "8px";
+        btn.addEventListener("click", (ev) => {
+          ev.stopPropagation();
+          empezarEliminar(n);
+        });
+        li.appendChild(btn);
+      }
+      li.addEventListener("click", () => seleccionar(n.id));
+      lista.appendChild(li);
+    });
+  }
+
+  // Cambia de negocio sin cerrar sesión: actualiza título, dirección,
+  // piezas y el enlace a la página.
+  async function seleccionar(id) {
+    if (id === seleccionadoId) return;
+    seleccionadoId = id;
+    pintarLista();
+    await cargarSeleccionado();
+  }
+
+  async function cargarSeleccionado() {
+    const titulo = $("titulo");
+    const direccion = $("direccion");
+    const lista = $("piezas");
+    const ver = $("ver");
+    const elegido = negocios.find((n) => n.id === seleccionadoId);
+    if (!elegido) {
+      titulo.textContent = "Mi editor";
+      direccion.textContent = "";
+      lista.innerHTML = "<li>No tienes negocios todavía. Crea uno.</li>";
+      ver.hidden = true;
+      return;
+    }
+    ver.hidden = false;
+    const resp = await fetch("/api/mi-negocio?business_id=" + encodeURIComponent(elegido.id));
+    if (!resp.ok) { await cargarNegocios(); return; }
+    const dato = await resp.json();
+    titulo.textContent = "Editor de " + dato.negocio.name;
+    direccion.textContent = dato.negocio.subdomain + ".locablo.com";
+    ver.href = urlNegocio(dato.negocio.subdomain);
+    lista.innerHTML = "";
+    if (!dato.piezas.length) {
+      lista.innerHTML = "<li>Todavía no tienes piezas. Se agregan en el siguiente paso.</li>";
+    } else {
+      dato.piezas.forEach((p) => {
+        const li = document.createElement("li");
+        let datos = {};
+        try { datos = JSON.parse(p.content); } catch (e) {}
+        li.textContent = p.type + ": " + (datos.texto || datos.url || "");
+        lista.appendChild(li);
+      });
+    }
+  }
+
+  // ---------- Crear negocio ----------
+
+  const campoNuevo = $("nombre-nuevo");
+  const vistaNuevo = $("vista-nuevo");
+  let tiempoVista = null;
+
+  campoNuevo.addEventListener("input", () => {
+    const subdominio = aSubdominio(campoNuevo.value);
+    if (!subdominio) { vistaNuevo.textContent = "Escribe el nombre y aquí verás su dirección."; return; }
+    vistaNuevo.innerHTML = "Tu dirección será: <b>" + subdominio + ".locablo.com</b><br>Revisando si está libre…";
+    clearTimeout(tiempoVista);
+    tiempoVista = setTimeout(async () => {
+      try {
+        const resp = await fetch("/api/disponible", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ subdomain: subdominio })
+        });
+        const dato = await resp.json();
+        vistaNuevo.innerHTML = dato.libre
+          ? "Tu dirección será: <b>" + dato.subdomain + ".locablo.com</b><br><span class='libre'>Está libre.</span>"
+          : "Tu dirección sería: <b>" + dato.subdomain + ".locablo.com</b><br><span class='ocupado'>" + (dato.motivo || "Ya está ocupado. Prueba con otro nombre.") + "</span>";
+      } catch (e) {
+        vistaNuevo.innerHTML = "Tu dirección será: <b>" + subdominio + ".locablo.com</b><br>(Aún no se pudo revisar si está libre.)";
+      }
+    }, 500);
+  });
+
+  // Crear usa la sesión actual: no crea otra cuenta. Mientras la
+  // petición está en curso, el botón queda deshabilitado para que no
+  // se pueda crear dos veces el mismo negocio.
+  $("form-crear").addEventListener("submit", async (ev) => {
+    ev.preventDefault();
+    if (creandoEnCurso) return;
+    const error = $("error-crear");
+    error.textContent = "";
+    const nombre = campoNuevo.value.trim();
+    if (!nombre) { error.textContent = "Escribe el nombre del negocio."; return; }
+    creandoEnCurso = true;
+    const btn = $("btn-crear");
+    btn.disabled = true;
+    btn.textContent = "Creando…";
+    try {
+      const resp = await fetch("/api/negocios", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name: nombre })
+      });
+      const dato = await resp.json();
+      if (!resp.ok) { error.textContent = dato.error || "No se pudo crear el negocio."; return; }
+      campoNuevo.value = "";
+      vistaNuevo.textContent = "Escribe el nombre y aquí verás su dirección.";
+      await cargarNegocios(dato.negocio.id); // la lista crece y el nuevo queda seleccionado
+    } catch (e) {
+      error.textContent = "No se pudo conectar con el servidor. Inténtalo de nuevo.";
+    } finally {
+      creandoEnCurso = false;
+      btn.disabled = false;
+      btn.textContent = "Crear negocio";
+    }
+  });
+
+  // ---------- Eliminar negocio (3 confirmaciones) ----------
+
+  function mostrarPaso(n) {
+    $("paso-1").hidden = n !== 1;
+    $("paso-2").hidden = n !== 2;
+    $("paso-3").hidden = n !== 3;
+  }
+
+  function detenerTemporizador() {
+    if (temporizador !== null) {
+      clearInterval(temporizador);
+      temporizador = null;
+    }
+  }
+
+  // Cancela todo el proceso: no se borra nada.
+  function cancelarEliminar() {
+    detenerTemporizador();
+    aEliminar = null;
+    borrandoEnCurso = false;
+    $("panel-eliminar").hidden = true;
+    $("nombre-confirmar").value = "";
+    $("btn-continuar").disabled = true;
+    $("error-eliminar").textContent = "";
+  }
+
+  // Paso 1: confirmar la intención.
+  function empezarEliminar(negocio) {
+    cancelarEliminar();
+    aEliminar = negocio;
+    $("texto-paso-1").textContent = "¿Seguro que quieres eliminar " + negocio.name + "? Esto borra su página y sus piezas para siempre.";
+    $("nombre-exacto").textContent = negocio.name;
+    mostrarPaso(1);
+    $("panel-eliminar").hidden = false;
+  }
+
+  $("btn-cancelar-1").addEventListener("click", cancelarEliminar);
+  $("btn-cancelar-2").addEventListener("click", cancelarEliminar);
+
+  // Paso 1 → paso 2: escribir el nombre exacto.
+  $("btn-si-eliminar").addEventListener("click", () => {
+    mostrarPaso(2);
+    $("nombre-confirmar").focus();
+  });
+
+  // Paso 2: el botón solo se activa cuando lo escrito coincide EXACTO
+  // con el nombre del negocio (mayúsculas y espacios incluidos).
+  $("nombre-confirmar").addEventListener("input", () => {
+    $("btn-continuar").disabled = $("nombre-confirmar").value !== (aEliminar ? aEliminar.name : "");
+  });
+
+  // Paso 2 → paso 3: espera de 10 segundos con "Detener".
+  $("btn-continuar").addEventListener("click", () => {
+    if (!aEliminar) return;
+    mostrarPaso(3);
+    segundos = 10;
+    $("cuenta-atras").textContent = "Eliminando... " + segundos;
+    $("btn-detener").disabled = false;
+    temporizador = setInterval(() => {
+      segundos -= 1;
+      if (segundos <= 0) {
+        detenerTemporizador();
+        confirmarEliminar();
+        return;
+      }
+      $("cuenta-atras").textContent = "Eliminando... " + segundos;
+    }, 1000);
+  });
+
+  // "Detener" cancela todo: no se borra nada.
+  $("btn-detener").addEventListener("click", cancelarEliminar);
+
+  // Solo cuando la cuenta atrás llegó a 0 sin pulsar "Detener" se envía
+  // el borrado al servidor. Mientras va en curso, todo queda deshabilitado.
+  async function confirmarEliminar() {
+    if (!aEliminar || borrandoEnCurso) return;
+    borrandoEnCurso = true;
+    $("btn-detener").disabled = true;
+    $("cuenta-atras").textContent = "Eliminando...";
+    const id = aEliminar.id;
+    try {
+      const resp = await fetch("/api/negocios/" + encodeURIComponent(id), { method: "DELETE" });
+      const dato = await resp.json();
+      if (!resp.ok) {
+        $("error-eliminar").textContent = dato.error || "No se pudo eliminar el negocio.";
+        mostrarPaso(2);
+        borrandoEnCurso = false;
+        return;
+      }
+      cancelarEliminar();
+      // Después de borrar, la lista se actualiza: si quedan otros, se
+      // selecciona el primero; si era el último, queda el estado vacío.
+      await cargarNegocios();
+    } catch (e) {
+      $("error-eliminar").textContent = "No se pudo conectar con el servidor. Inténtalo de nuevo.";
+      mostrarPaso(2);
+      borrandoEnCurso = false;
+    }
+  }
+
+  // ---------- Arranque ----------
+
+  cargarNegocios();
+
+  $("salir").addEventListener("click", async () => {
     await fetch("/api/salir", { method: "POST" });
     window.location.href = "/";
   });
