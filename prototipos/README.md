@@ -11,6 +11,13 @@ que lo construya funcional y puedas probarlo.
 
 - **`app.html`** — la herramienta. Se abre con **doble clic**, no necesita
   servidor ni internet. Todo se guarda solo en tu computadora.
+- **`app-movil.html`** — la misma herramienta, adaptada al celular:
+  botones grandes para el dedo, formas en una tira que se desliza,
+  el lienzo se achica para que quepa en la pantalla y las propiedades
+  salen desde abajo al tocar una pieza. Exporta exactamente igual que
+  la de computadora. Para abrirla en el celular, descarga el archivo
+  y ábrelo con Chrome desde Descargas (también está en GitHub, en
+  `prototipos/app-movil.html`).
 - **`ejemplo-editar-texto.html`** — un prototipo ya exportado de ejemplo:
   cómo se va a editar un texto dentro del editor de Locablo. Ábrelo con
   doble clic para ver cómo queda lo que la IA recibe.

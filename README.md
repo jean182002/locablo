@@ -84,6 +84,9 @@ ChatGPT, la IA local, Groq, Gemini):
   hacer. Se descarga como un HTML completo, con `data-etiqueta` y
   `data-funcion` en cada elemento, para que una IA lo interprete y lo
   construya funcional.
+- `prototipos/app-movil.html` — la misma herramienta para el celular:
+  botones grandes, formas en una tira, lienzo a escala y propiedades
+  desde abajo. Exporta igual que la de computadora.
 - `prototipos/ejemplo-editar-texto.html` — un prototipo ya exportado de
   ejemplo: cómo se edita un texto dentro del editor.
 - `prototipos/README.md` — el proceso completo y el prompt para
