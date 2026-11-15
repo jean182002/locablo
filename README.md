@@ -67,6 +67,27 @@ viven en la tabla `reserved_subdomains`.
 - `public/editor.html` — el editor: "Mis negocios" (listar, cambiar
   y crear negocios), eliminar con 3 confirmaciones y la lista de
   piezas. Agregar, mover y recolorear piezas es el siguiente paso.
+- `prototipos/` — la herramienta para dibujar prototipos (ver abajo).
+- `docs/ia-local.md` — guía de IA local y gratis para prototipar
+  (Ollama + Continue + Groq + Gemini).
+
+## Prototipos (dibujar el diseño, la IA lo hace funcional)
+
+En `prototipos/` está la herramienta para crear prototipos de páginas y
+funciones sin programar, pensada para que la use cualquier IA (Muse,
+ChatGPT, la IA local, Groq, Gemini):
+
+- `prototipos/app.html` — la herramienta: se abre con **doble clic**,
+  no necesita servidor ni internet. Se dibuja el diseño con formas
+  (rectángulo, texto, botón, campo, imagen, círculo, nota), a cada
+  pieza se le pone un nombre en su etiqueta y se escribe qué debe
+  hacer. Se descarga como un HTML completo, con `data-etiqueta` y
+  `data-funcion` en cada elemento, para que una IA lo interprete y lo
+  construya funcional.
+- `prototipos/ejemplo-editar-texto.html` — un prototipo ya exportado de
+  ejemplo: cómo se edita un texto dentro del editor.
+- `prototipos/README.md` — el proceso completo y el prompt para
+  pasarle el prototipo a la IA.
 
 ## Mis negocios en el editor
 

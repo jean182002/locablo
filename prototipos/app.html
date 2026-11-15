@@ -1,0 +1,636 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Prototipos — Locablo</title>
+<style>
+  * { box-sizing: border-box; }
+  body { margin: 0; font-family: system-ui, -apple-system, "Segoe UI", sans-serif; background: #e5e7eb; color: #111827; }
+  header { background: #111827; color: #fff; padding: 10px 14px; display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+  header h1 { font-size: 16px; margin: 0 6px 0 0; white-space: nowrap; }
+  header input[type=text] { padding: 7px 9px; border-radius: 6px; border: 1px solid #374151; background: #1f2937; color: #fff; font-size: 13px; }
+  header select { padding: 7px; border-radius: 6px; border: 1px solid #374151; background: #1f2937; color: #fff; font-size: 13px; }
+  header button { padding: 7px 12px; border-radius: 6px; border: 1px solid #374151; background: #374151; color: #fff; cursor: pointer; font-size: 13px; }
+  header button.primary { background: #2563eb; border-color: #2563eb; font-weight: 600; }
+  header button:hover { filter: brightness(1.2); }
+  #layout { display: flex; height: calc(100vh - 53px); }
+  #tools { width: 180px; flex: none; background: #fff; border-right: 1px solid #d1d5db; padding: 10px; overflow-y: auto; }
+  #tools h2, #props h2 { font-size: 12px; text-transform: uppercase; letter-spacing: .05em; color: #6b7280; margin: 6px 0 8px; }
+  .tool { display: block; width: 100%; text-align: left; padding: 9px 10px; margin-bottom: 6px; border: 1px solid #d1d5db; background: #f9fafb; border-radius: 8px; cursor: pointer; font-size: 14px; }
+  .tool.active { background: #dbeafe; border-color: #2563eb; }
+  .tool small { display: block; color: #6b7280; font-size: 11px; margin-top: 1px; }
+  .hint { font-size: 13px; color: #6b7280; line-height: 1.55; }
+  #stage { flex: 1; overflow: auto; padding: 26px; display: flex; justify-content: center; align-items: flex-start; }
+  #artboard { position: relative; background: #fff; box-shadow: 0 4px 24px rgba(0,0,0,.18); flex: none;
+    background-image: linear-gradient(#eef2ff 1px, transparent 1px), linear-gradient(90deg, #eef2ff 1px, transparent 1px);
+    background-size: 20px 20px; }
+  .pieza { position: absolute; box-sizing: border-box; display: flex; align-items: center; justify-content: center;
+    text-align: center; overflow: hidden; cursor: move; user-select: none; -webkit-user-select: none; padding: 4px; font-size: 16px; touch-action: none; }
+  .pieza.sel { outline: 2px solid #2563eb; }
+  .etiqueta { position: absolute; top: -20px; left: 0; background: #2563eb; color: #fff; font-size: 11px; line-height: 1.4;
+    padding: 1px 6px; border-radius: 4px; white-space: nowrap; z-index: 10000; pointer-events: none; }
+  .handle { position: absolute; right: -7px; bottom: -7px; width: 14px; height: 14px; background: #2563eb;
+    border: 2px solid #fff; border-radius: 3px; cursor: nwse-resize; z-index: 10001; touch-action: none; }
+  #props { width: 272px; flex: none; background: #fff; border-left: 1px solid #d1d5db; padding: 12px; overflow-y: auto; }
+  #props label { display: block; font-size: 12px; color: #6b7280; margin: 10px 0 3px; }
+  #props input[type=text], #props input[type=number], #props textarea, #props select { width: 100%; padding: 7px 8px; border: 1px solid #d1d5db; border-radius: 6px; font-size: 14px; font-family: inherit; }
+  #props textarea { min-height: 62px; resize: vertical; }
+  #props input[type=color] { width: 100%; height: 34px; padding: 2px; border: 1px solid #d1d5db; border-radius: 6px; background: #fff; cursor: pointer; }
+  .row { display: flex; gap: 8px; }
+  .row > div { flex: 1; min-width: 0; }
+  #props button { width: 100%; padding: 8px; margin-top: 8px; border-radius: 6px; border: 1px solid #d1d5db; background: #f9fafb; cursor: pointer; font-size: 14px; }
+  #props button.danger { background: #fef2f2; border-color: #fca5a5; color: #b91c1c; }
+  #props button:hover { filter: brightness(.97); }
+</style>
+</head>
+<body>
+<header>
+  <h1>🧩 Prototipos — Locablo</h1>
+  <input type="text" id="nombreProto" placeholder="Nombre del prototipo" style="width:210px">
+  <input type="text" id="descProto" placeholder="¿Qué hace este prototipo?" style="flex:1;min-width:170px">
+  <select id="tamLienzo" title="Tamaño del lienzo">
+    <option value="1200x800">Escritorio 1200×800</option>
+    <option value="390x844">Celular 390×844</option>
+    <option value="768x1024">Tableta 768×1024</option>
+  </select>
+  <button id="btnDeshacer" title="Deshacer (Ctrl+Z)">↩ Deshacer</button>
+  <button id="btnNuevo">Nuevo</button>
+  <button id="btnEjemplo">Cargar ejemplo</button>
+  <button id="btnGuardar">💾 Guardar</button>
+  <button id="btnAbrir">📂 Abrir</button>
+  <button id="btnExportar" class="primary">⬇ Descargar HTML</button>
+</header>
+<div id="layout">
+  <aside id="tools">
+    <h2>Formas</h2>
+    <button class="tool" data-tipo="rect">▭ Rectángulo<small>Un bloque o panel</small></button>
+    <button class="tool" data-tipo="texto">T Texto<small>Un título o párrafo</small></button>
+    <button class="tool" data-tipo="boton">🔘 Botón<small>Algo que se presiona</small></button>
+    <button class="tool" data-tipo="campo">✏️ Campo<small>Donde se escribe</small></button>
+    <button class="tool" data-tipo="imagen">🖼 Imagen<small>Foto o dibujo</small></button>
+    <button class="tool" data-tipo="circulo">● Círculo<small>Un punto o color</small></button>
+    <button class="tool" data-tipo="nota">📝 Nota<small>Explica una función</small></button>
+    <h2>Opciones</h2>
+    <label style="font-size:13px"><input type="checkbox" id="chkEtiquetas" checked> Ver etiquetas</label>
+    <p class="hint">1. Elige una forma.<br>2. Haz clic en el lienzo para ponerla.<br>3. Arrástrala para moverla; estira la esquina azul para cambiar su tamaño.<br>4. Ponle un nombre en la etiqueta y escribe qué debe hacer.<br>5. Descarga el HTML y pásaselo a una IA para que lo haga funcional.</p>
+  </aside>
+  <main id="stage"><div id="artboard"></div></main>
+  <aside id="props">
+    <h2>Propiedades</h2>
+    <div id="propsBody"><p class="hint">Haz clic en una forma del lienzo para ver sus propiedades.</p></div>
+  </aside>
+</div>
+<input type="file" id="fileInput" accept=".json,application/json" hidden>
+<script>
+"use strict";
+/* Herramienta de prototipos de Locablo.
+   Se abre con doble clic, no necesita servidor ni internet.
+   Cada prototipo se descarga como un HTML completo con data-etiqueta
+   y data-funcion en cada elemento, para que una IA lo interprete
+   y construya la versión funcional. */
+
+var $ = function (id) { return document.getElementById(id); };
+var CLAVE_GUARDADO = "locablo-prototipo-v1";
+
+/* ---------- Estado ---------- */
+var state = { nombre: "", descripcion: "", canvas: { w: 1200, h: 800 }, shapes: [] };
+var selectedId = null;
+var activeTool = "select";
+var nextId = 1;
+var hist = [];
+var mostrarEtiquetas = true;
+
+function esc(s) {
+  return String(s == null ? "" : s)
+    .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
+}
+
+var DEFAULTS = {
+  rect:    { w: 200, h: 120, bg: "#dbeafe", color: "#1e3a8a", font: 16, texto: "Rectángulo", etiqueta: "panel", funcion: "" },
+  texto:   { w: 220, h: 40,  bg: "transparent", color: "#111827", font: 20, texto: "Texto", etiqueta: "texto", funcion: "" },
+  boton:   { w: 160, h: 48,  bg: "#2563eb", color: "#ffffff", font: 16, texto: "Botón", etiqueta: "boton", funcion: "" },
+  campo:   { w: 240, h: 48,  bg: "#ffffff", color: "#111827", font: 16, texto: "Escribe aquí...", etiqueta: "campo", funcion: "" },
+  imagen:  { w: 200, h: 140, bg: "#f3f4f6", color: "#374151", font: 16, texto: "Imagen", etiqueta: "imagen", funcion: "" },
+  circulo: { w: 120, h: 120, bg: "#fde68a", color: "#78350f", font: 16, texto: "", etiqueta: "circulo", funcion: "" },
+  nota:    { w: 200, h: 100, bg: "#fef9c3", color: "#713f12", font: 14, texto: "Nota: ...", etiqueta: "nota", funcion: "Nota de diseño, no es un elemento de la página." }
+};
+
+function nuevaPieza(tipo, x, y) {
+  var d = DEFAULTS[tipo] || DEFAULTS.rect;
+  var p = {
+    id: "pieza-" + (nextId++), tipo: tipo,
+    x: Math.max(0, Math.round(x - d.w / 2)), y: Math.max(0, Math.round(y - d.h / 2)),
+    w: d.w, h: d.h, bg: d.bg, color: d.color, font: d.font,
+    texto: d.texto, etiqueta: d.etiqueta + "-" + (nextId - 1), funcion: d.funcion
+  };
+  return p;
+}
+
+function piezaPorId(id) {
+  for (var i = 0; i < state.shapes.length; i++) if (state.shapes[i].id === id) return state.shapes[i];
+  return null;
+}
+
+/* ---------- Ejemplo: editar texto en el editor ---------- */
+function ejemploEditarTexto() {
+  function p(tipo, x, y, w, h, etiqueta, texto, extra) {
+    var base = {
+      id: "pieza-" + (nextId++), tipo: tipo, x: x, y: y, w: w, h: h,
+      bg: (DEFAULTS[tipo] || DEFAULTS.rect).bg, color: (DEFAULTS[tipo] || DEFAULTS.rect).color,
+      font: (DEFAULTS[tipo] || DEFAULTS.rect).font, texto: texto || "",
+      etiqueta: etiqueta, funcion: ""
+    };
+    if (extra) for (var k in extra) base[k] = extra[k];
+    return base;
+  }
+  return {
+    nombre: "Editar texto en el editor",
+    descripcion: "Prototipo de cómo se edita el texto de una pieza dentro del editor de Locablo: haces clic en un texto de la página y se abre este panel.",
+    canvas: { w: 1200, h: 800 },
+    shapes: [
+      p("rect", 40, 40, 700, 720, "pagina-ejemplo", "Página de la taquería", { bg: "#ffffff", color: "#64748b", font: 16, funcion: "Vista previa de la página del negocio. Al hacer clic en un texto se abre el panel de editar texto." }),
+      p("texto", 80, 80, 320, 50, "titulo-negocio", "Taquería El Güero", { font: 28, funcion: "Título del negocio. Al hacer clic se abre el panel para editarlo." }),
+      p("texto", 80, 150, 420, 80, "texto-descripcion", "Los mejores tacos al pastor de Reynosa.", { font: 18, funcion: "Descripción del negocio. Al hacer clic se abre el panel para editarla." }),
+      p("rect", 780, 40, 380, 720, "panel-editar-texto", "", { bg: "#f1f5f9", color: "#334155", funcion: "Panel que aparece al hacer clic en un texto de la página." }),
+      p("texto", 800, 60, 340, 40, "titulo-panel", "Editar texto", { font: 22, funcion: "" }),
+      p("campo", 800, 120, 340, 48, "campo-texto", "Taquería El Güero", { funcion: "Al escribir aquí cambia el texto en la vista previa, en vivo." }),
+      p("texto", 800, 200, 340, 30, "etiqueta-tamano", "Tamaño de letra", { font: 16, funcion: "" }),
+      p("boton", 800, 240, 100, 44, "tamano-chico", "Chico", { funcion: "Pone el texto en tamaño chico." }),
+      p("boton", 910, 240, 100, 44, "tamano-mediano", "Mediano", { funcion: "Pone el texto en tamaño mediano." }),
+      p("boton", 1020, 240, 100, 44, "tamano-grande", "Grande", { funcion: "Pone el texto en tamaño grande." }),
+      p("texto", 800, 310, 340, 30, "etiqueta-color", "Color", { font: 16, funcion: "" }),
+      p("circulo", 800, 350, 48, 48, "color-naranja", "", { bg: "#f97316", funcion: "Pinta el texto de naranja." }),
+      p("circulo", 860, 350, 48, 48, "color-negro", "", { bg: "#111827", funcion: "Pinta el texto de negro." }),
+      p("circulo", 920, 350, 48, 48, "color-rojo", "", { bg: "#dc2626", funcion: "Pinta el texto de rojo." }),
+      p("boton", 800, 430, 160, 48, "boton-negrita", "Negrita", { funcion: "Pone el texto en negrita." }),
+      p("boton", 980, 430, 160, 48, "boton-cursiva", "Cursiva", { funcion: "Pone el texto en cursiva." }),
+      p("boton", 800, 520, 340, 52, "boton-guardar", "Guardar cambios", { bg: "#16a34a", funcion: "Guarda el texto y cierra el panel." }),
+      p("nota", 800, 600, 340, 90, "nota-funcion", "Al hacer clic en un texto de la página se abre este panel.", { funcion: "Nota de diseño, no es un elemento de la página." })
+    ]
+  };
+}
+
+/* ---------- Historial (deshacer) ---------- */
+function fotoEstado() { return JSON.stringify(state); }
+function pushHist() {
+  hist.push(fotoEstado());
+  if (hist.length > 50) hist.shift();
+}
+function deshacer() {
+  if (!hist.length) return;
+  state = JSON.parse(hist.pop());
+  selectedId = null;
+  syncCabecera();
+  renderAll();
+  autosave();
+}
+
+/* ---------- Guardado automático ---------- */
+function autosave() {
+  try { localStorage.setItem(CLAVE_GUARDADO, fotoEstado()); } catch (e) { /* sin almacenamiento, no pasa nada */ }
+}
+function cargarGuardado() {
+  try {
+    var raw = localStorage.getItem(CLAVE_GUARDADO);
+    if (!raw) return false;
+    var obj = JSON.parse(raw);
+    if (!obj || !Array.isArray(obj.shapes)) return false;
+    aplicarEstado(obj);
+    return true;
+  } catch (e) { return false; }
+}
+function aplicarEstado(obj) {
+  state = {
+    nombre: obj.nombre || "",
+    descripcion: obj.descripcion || "",
+    canvas: obj.canvas && obj.canvas.w ? obj.canvas : { w: 1200, h: 800 },
+    shapes: obj.shapes || []
+  };
+  var max = 0;
+  state.shapes.forEach(function (s) {
+    var n = parseInt(String(s.id || "").replace("pieza-", ""), 10);
+    if (!isNaN(n) && n > max) max = n;
+  });
+  nextId = max + 1;
+  selectedId = null;
+  syncCabecera();
+}
+
+/* ---------- Render ---------- */
+function estiloPieza(s) {
+  var st = "left:" + s.x + "px;top:" + s.y + "px;width:" + s.w + "px;height:" + s.h + "px;" +
+    "background:" + s.bg + ";color:" + s.color + ";font-size:" + s.font + "px;";
+  if (s.tipo === "rect") st += "border:2px solid #93c5fd;";
+  if (s.tipo === "boton") st += "border:none;border-radius:8px;";
+  if (s.tipo === "campo") st += "border:2px solid #cbd5e1;border-radius:8px;background:#fff;";
+  if (s.tipo === "imagen") st += "border:2px dashed #9ca3af;";
+  if (s.tipo === "circulo") st += "border-radius:50%;";
+  if (s.tipo === "nota") st += "border:2px dashed #eab308;";
+  if (s.tipo === "texto") st += "background:transparent;border:none;justify-content:flex-start;";
+  return st;
+}
+
+function elPieza(s) {
+  var el = document.createElement("div");
+  el.className = "pieza" + (s.id === selectedId ? " sel" : "");
+  el.dataset.id = s.id;
+  el.setAttribute("style", estiloPieza(s));
+  if (s.tipo === "imagen" && s.texto) el.textContent = "🖼 " + s.texto;
+  else el.textContent = s.texto;
+  if (mostrarEtiquetas) {
+    var tag = document.createElement("span");
+    tag.className = "etiqueta";
+    tag.textContent = s.etiqueta;
+    el.appendChild(tag);
+  }
+  if (s.id === selectedId) {
+    var h = document.createElement("div");
+    h.className = "handle";
+    el.appendChild(h);
+  }
+  el.addEventListener("pointerdown", onPiezaPointerDown);
+  return el;
+}
+
+function renderAll() {
+  var board = $("artboard");
+  board.style.width = state.canvas.w + "px";
+  board.style.height = state.canvas.h + "px";
+  board.innerHTML = "";
+  state.shapes.forEach(function (s) { board.appendChild(elPieza(s)); });
+  renderProps();
+}
+
+function syncCabecera() {
+  $("nombreProto").value = state.nombre || "";
+  $("descProto").value = state.descripcion || "";
+  $("tamLienzo").value = state.canvas.w + "x" + state.canvas.h;
+}
+
+function select(id) {
+  selectedId = id;
+  document.querySelectorAll("#artboard .pieza").forEach(function (el) {
+    var esSel = el.dataset.id === id;
+    el.classList.toggle("sel", esSel);
+    var h = el.querySelector(".handle");
+    if (esSel && !h) { var nh = document.createElement("div"); nh.className = "handle"; el.appendChild(nh); }
+    if (!esSel && h) h.remove();
+  });
+  renderProps();
+}
+
+/* ---------- Propiedades ---------- */
+function campoProp(tipoInput, etiqueta, valor, alCambiar) {
+  var wrap = document.createElement("div");
+  var lab = document.createElement("label");
+  lab.textContent = etiqueta;
+  var inp;
+  if (tipoInput === "textarea") { inp = document.createElement("textarea"); }
+  else { inp = document.createElement("input"); inp.type = tipoInput; }
+  inp.value = valor;
+  inp.addEventListener("focus", function () { pushHist(); });
+  inp.addEventListener("input", function () { alCambiar(inp.value); });
+  inp.addEventListener("change", function () { autosave(); });
+  wrap.appendChild(lab);
+  wrap.appendChild(inp);
+  return wrap;
+}
+
+function renderProps() {
+  var body = $("propsBody");
+  body.innerHTML = "";
+  var s = piezaPorId(selectedId);
+  if (!s) {
+    body.innerHTML = '<p class="hint">Haz clic en una forma del lienzo para ver sus propiedades.<br><br>Consejo: ponle a cada forma un nombre claro en su etiqueta, por ejemplo <b>boton-guardar</b> o <b>campo-texto</b>. Ese nombre es el que la IA va a usar para saber qué es cada cosa.</p>';
+    return;
+  }
+  var el = document.querySelector('#artboard .pieza[data-id="' + s.id + '"]');
+  function live() { if (el) el.setAttribute("style", estiloPieza(s)); }
+
+  body.appendChild(campoProp("text", "Etiqueta (nombre de la pieza)", s.etiqueta, function (v) {
+    s.etiqueta = v;
+    var tag = el ? el.querySelector(".etiqueta") : null;
+    if (tag) tag.textContent = v;
+  }));
+  body.appendChild(campoProp("text", "Texto visible", s.texto, function (v) {
+    s.texto = v;
+    if (el) {
+      var tag = el.querySelector(".etiqueta");
+      var h = el.querySelector(".handle");
+      el.textContent = s.tipo === "imagen" && v ? "🖼 " + v : v;
+      if (tag) el.appendChild(tag);
+      if (h) el.appendChild(h);
+    }
+  }));
+  body.appendChild(campoProp("textarea", "¿Qué debe hacer? (función)", s.funcion, function (v) { s.funcion = v; }));
+
+  var fila = document.createElement("div");
+  fila.className = "row";
+  var c1 = document.createElement("div");
+  var labBg = document.createElement("label"); labBg.textContent = "Color de fondo";
+  var inBg = document.createElement("input"); inBg.type = "color"; inBg.value = aHex(s.bg);
+  inBg.addEventListener("focus", function () { pushHist(); });
+  inBg.addEventListener("input", function () { s.bg = inBg.value; live(); });
+  inBg.addEventListener("change", autosave);
+  c1.appendChild(labBg); c1.appendChild(inBg);
+  var c2 = document.createElement("div");
+  var labTx = document.createElement("label"); labTx.textContent = "Color de texto";
+  var inTx = document.createElement("input"); inTx.type = "color"; inTx.value = aHex(s.color);
+  inTx.addEventListener("focus", function () { pushHist(); });
+  inTx.addEventListener("input", function () { s.color = inTx.value; live(); });
+  inTx.addEventListener("change", autosave);
+  c2.appendChild(labTx); c2.appendChild(inTx);
+  fila.appendChild(c1); fila.appendChild(c2);
+  body.appendChild(fila);
+
+  var fila2 = document.createElement("div");
+  fila2.className = "row";
+  fila2.appendChild(campoProp("number", "Ancho (px)", s.w, function (v) { s.w = Math.max(20, parseInt(v, 10) || 20); live(); }));
+  fila2.appendChild(campoProp("number", "Alto (px)", s.h, function (v) { s.h = Math.max(20, parseInt(v, 10) || 20); live(); }));
+  body.appendChild(fila2);
+  body.appendChild(campoProp("number", "Tamaño de letra (px)", s.font, function (v) { s.font = Math.max(8, parseInt(v, 10) || 14); live(); }));
+
+  function btnAccion(texto, fn, clase) {
+    var b = document.createElement("button");
+    b.textContent = texto;
+    if (clase) b.className = clase;
+    b.addEventListener("click", fn);
+    body.appendChild(b);
+  }
+  btnAccion("⧉ Duplicar", function () {
+    pushHist();
+    var copia = JSON.parse(JSON.stringify(s));
+    copia.id = "pieza-" + (nextId++);
+    copia.x = Math.min(state.canvas.w - 20, s.x + 24);
+    copia.y = Math.min(state.canvas.h - 20, s.y + 24);
+    copia.etiqueta = s.etiqueta + "-copia";
+    state.shapes.push(copia);
+    renderAll(); select(copia.id); autosave();
+  });
+  btnAccion("⬆ Traer al frente", function () {
+    pushHist();
+    var i = state.shapes.indexOf(s);
+    state.shapes.splice(i, 1); state.shapes.push(s);
+    renderAll(); select(s.id); autosave();
+  });
+  btnAccion("⬇ Enviar atrás", function () {
+    pushHist();
+    var i = state.shapes.indexOf(s);
+    state.shapes.splice(i, 1); state.shapes.unshift(s);
+    renderAll(); select(s.id); autosave();
+  });
+  btnAccion("🗑 Eliminar", function () {
+    pushHist();
+    state.shapes = state.shapes.filter(function (x) { return x.id !== s.id; });
+    selectedId = null; renderAll(); autosave();
+  }, "danger");
+}
+
+function aHex(color) {
+  if (/^#[0-9a-fA-F]{6}$/.test(color)) return color;
+  if (color === "transparent") return "#ffffff";
+  var m = /^#([0-9a-fA-F]{3})$/.exec(color || "");
+  if (m) return "#" + m[1].split("").map(function (c) { return c + c; }).join("");
+  return "#ffffff";
+}
+
+/* ---------- Arrastrar y cambiar tamaño ---------- */
+var arrastre = null;
+function onPiezaPointerDown(e) {
+  e.stopPropagation();
+  var el = e.currentTarget;
+  var s = piezaPorId(el.dataset.id);
+  if (!s) return;
+  select(s.id);
+  var esHandle = e.target.classList.contains("handle");
+  pushHist();
+  arrastre = {
+    id: s.id, modo: esHandle ? "resize" : "move",
+    x0: e.clientX, y0: e.clientY,
+    ox: s.x, oy: s.y, ow: s.w, oh: s.h
+  };
+  el.setPointerCapture(e.pointerId);
+  el.addEventListener("pointermove", onArrastreMove);
+  el.addEventListener("pointerup", onArrastreUp, { once: true });
+  el.addEventListener("pointercancel", onArrastreUp, { once: true });
+}
+function onArrastreMove(e) {
+  if (!arrastre) return;
+  var s = piezaPorId(arrastre.id);
+  if (!s) return;
+  var el = document.querySelector('#artboard .pieza[data-id="' + s.id + '"]');
+  var dx = Math.round((e.clientX - arrastre.x0) / 5) * 5;
+  var dy = Math.round((e.clientY - arrastre.y0) / 5) * 5;
+  if (arrastre.modo === "move") {
+    s.x = Math.max(0, Math.min(state.canvas.w - 20, arrastre.ox + dx));
+    s.y = Math.max(0, Math.min(state.canvas.h - 20, arrastre.oy + dy));
+  } else {
+    s.w = Math.max(20, arrastre.ow + dx);
+    s.h = Math.max(20, arrastre.oh + dy);
+  }
+  if (el) el.setAttribute("style", estiloPieza(s));
+}
+function onArrastreUp(e) {
+  var el = e.currentTarget;
+  el.removeEventListener("pointermove", onArrastreMove);
+  arrastre = null;
+  renderProps();
+  autosave();
+}
+
+/* ---------- Lienzo: poner formas ---------- */
+$("artboard").addEventListener("pointerdown", function (e) {
+  if (activeTool === "select") { select(null); return; }
+  var rect = $("artboard").getBoundingClientRect();
+  var x = e.clientX - rect.left;
+  var y = e.clientY - rect.top;
+  pushHist();
+  var pieza = nuevaPieza(activeTool, x, y);
+  state.shapes.push(pieza);
+  setTool("select");
+  renderAll();
+  select(pieza.id);
+  autosave();
+});
+
+function setTool(tipo) {
+  activeTool = tipo;
+  document.querySelectorAll("#tools .tool").forEach(function (b) {
+    b.classList.toggle("active", b.dataset.tipo === tipo);
+  });
+}
+document.querySelectorAll("#tools .tool").forEach(function (b) {
+  b.addEventListener("click", function () {
+    setTool(activeTool === b.dataset.tipo ? "select" : b.dataset.tipo);
+  });
+});
+$("chkEtiquetas").addEventListener("change", function () {
+  mostrarEtiquetas = $("chkEtiquetas").checked;
+  renderAll();
+});
+
+/* ---------- Exportar HTML ---------- */
+function buildExportHTML(st) {
+  var piezas = st.shapes.map(function (p) {
+    var style = "left:" + p.x + "px;top:" + p.y + "px;width:" + p.w + "px;height:" + p.h + "px;" +
+      "background:" + p.bg + ";color:" + p.color + ";font-size:" + p.font + "px;";
+    var attrs = 'data-etiqueta="' + esc(p.etiqueta) + '" data-funcion="' + esc(p.funcion) + '"';
+    var badge = '<span class="etiqueta">' + esc(p.etiqueta) + "</span>";
+    if (p.tipo === "boton") return '    <button class="pieza boton" ' + attrs + ' style="' + style + '">' + badge + esc(p.texto) + "</button>";
+    if (p.tipo === "campo") return '    <input type="text" class="pieza campo" placeholder="' + esc(p.texto) + '" ' + attrs + ' style="' + style + '">';
+    if (p.tipo === "texto") return '    <p class="pieza texto" ' + attrs + ' style="' + style + '">' + badge + esc(p.texto) + "</p>";
+    if (p.tipo === "imagen") return '    <div class="pieza imagen" ' + attrs + ' style="' + style + '">' + badge + "🖼 " + esc(p.texto) + "</div>";
+    if (p.tipo === "nota") return '    <div class="pieza nota" ' + attrs + ' style="' + style + '">' + badge + esc(p.texto) + "</div>";
+    if (p.tipo === "circulo") return '    <div class="pieza circulo" ' + attrs + ' style="' + style + '">' + badge + esc(p.texto) + "</div>";
+    return '    <div class="pieza rect" ' + attrs + ' style="' + style + '">' + badge + esc(p.texto) + "</div>";
+  }).join("\n");
+  return "<!DOCTYPE html>\n<html lang=\"es\">\n<head>\n<meta charset=\"UTF-8\">\n" +
+    "<meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\">\n" +
+    "<title>" + esc(st.nombre || "Prototipo") + "</title>\n<style>\n" +
+    "  body { font-family: system-ui, sans-serif; background: #e5e7eb; margin: 0; padding: 24px; }\n" +
+    "  .barra { background: #111827; color: #fff; padding: 12px 16px; border-radius: 8px; margin: 0 auto 16px; max-width: " + st.canvas.w + "px; }\n" +
+    "  .barra small { color: #9ca3af; }\n" +
+    "  .lienzo { position: relative; background: #fff; margin: 0 auto; box-shadow: 0 2px 12px rgba(0,0,0,.15); width: " + st.canvas.w + "px; height: " + st.canvas.h + "px; }\n" +
+    "  .pieza { position: absolute; box-sizing: border-box; display: flex; align-items: center; justify-content: center; text-align: center; overflow: hidden; padding: 4px; }\n" +
+    "  .rect { border: 2px solid #93c5fd; }\n" +
+    "  .boton { border: none; border-radius: 8px; cursor: pointer; }\n" +
+    "  .campo { border: 2px solid #cbd5e1; border-radius: 8px; background: #fff; }\n" +
+    "  .texto { background: transparent !important; border: none !important; justify-content: flex-start; }\n" +
+    "  .imagen { border: 2px dashed #9ca3af; }\n" +
+    "  .circulo { border-radius: 50%; }\n" +
+    "  .nota { border: 2px dashed #eab308; }\n" +
+    "  .etiqueta { position: absolute; top: 2px; left: 2px; background: rgba(37,99,235,.92); color: #fff; font-size: 10px; padding: 1px 5px; border-radius: 3px; white-space: nowrap; pointer-events: none; }\n" +
+    "</style>\n</head>\n<body>\n<!--\n" +
+    "PROTOTIPO — creado con la herramienta de prototipos de Locablo\n" +
+    "Nombre: " + (st.nombre || "Sin nombre") + "\n" +
+    "Descripción: " + (st.descripcion || "Sin descripción") + "\n\n" +
+    "CÓMO LEER ESTE ARCHIVO (si eres una IA y te pasaron este prototipo):\n" +
+    "- Cada elemento tiene data-etiqueta: el nombre que le puso quien diseñó el prototipo. Usa esos nombres para referirte a cada parte.\n" +
+    "- Cada elemento tiene data-funcion: lo que debe hacer cuando el usuario interactúa con él. Si está vacío, es solo visual.\n" +
+    "- Las posiciones y tamaños son los del boceto: respétalos en la versión funcional.\n" +
+    "- Construye la versión funcional en HTML, CSS y JavaScript, con el comportamiento descrito en data-funcion.\n" +
+    "- Si algo no queda claro, pregunta antes de inventarlo.\n" +
+    "-->\n" +
+    '<div class="barra"><strong>Prototipo: ' + esc(st.nombre || "Sin nombre") + "</strong><br><small>" + esc(st.descripcion || "") + "</small></div>\n" +
+    '<div class="lienzo">\n' + piezas + "\n</div>\n</body>\n</html>\n";
+}
+
+function descargar(nombre, contenido, tipo) {
+  var blob = new Blob([contenido], { type: tipo || "text/html;charset=utf-8" });
+  var a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  a.download = nombre;
+  document.body.appendChild(a);
+  a.click();
+  setTimeout(function () { URL.revokeObjectURL(a.href); a.remove(); }, 500);
+}
+
+function slug(s) {
+  return (s || "prototipo").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "") || "prototipo";
+}
+
+/* ---------- Botones de la cabecera ---------- */
+$("btnExportar").addEventListener("click", function () {
+  descargar(slug(state.nombre) + ".html", buildExportHTML(state), "text/html;charset=utf-8");
+});
+$("btnGuardar").addEventListener("click", function () {
+  descargar(slug(state.nombre) + ".json", JSON.stringify(state, null, 2), "application/json;charset=utf-8");
+});
+$("btnAbrir").addEventListener("click", function () { $("fileInput").click(); });
+$("fileInput").addEventListener("change", function () {
+  var f = $("fileInput").files[0];
+  if (!f) return;
+  var lector = new FileReader();
+  lector.onload = function () {
+    try {
+      var obj = JSON.parse(lector.result);
+      if (!obj || !Array.isArray(obj.shapes)) throw new Error("formato");
+      pushHist();
+      aplicarEstado(obj);
+      renderAll();
+      autosave();
+    } catch (e) { alert("Ese archivo no es un prototipo guardado."); }
+    $("fileInput").value = "";
+  };
+  lector.readAsText(f);
+});
+$("btnNuevo").addEventListener("click", function () {
+  if (state.shapes.length && !confirm("¿Empezar un prototipo nuevo? Se borra lo que hay en el lienzo.")) return;
+  pushHist();
+  aplicarEstado({ nombre: "", descripcion: "", canvas: { w: 1200, h: 800 }, shapes: [] });
+  renderAll();
+  autosave();
+});
+$("btnEjemplo").addEventListener("click", function () {
+  if (state.shapes.length && !confirm("¿Cargar el ejemplo? Se borra lo que hay en el lienzo.")) return;
+  pushHist();
+  aplicarEstado(ejemploEditarTexto());
+  renderAll();
+  autosave();
+});
+$("btnDeshacer").addEventListener("click", deshacer);
+$("tamLienzo").addEventListener("change", function () {
+  var partes = $("tamLienzo").value.split("x");
+  pushHist();
+  state.canvas = { w: parseInt(partes[0], 10), h: parseInt(partes[1], 10) };
+  renderAll();
+  autosave();
+});
+$("nombreProto").addEventListener("input", function () { state.nombre = $("nombreProto").value; autosave(); });
+$("descProto").addEventListener("input", function () { state.descripcion = $("descProto").value; autosave(); });
+$("chkEtiquetas").addEventListener("change", function () { mostrarEtiquetas = $("chkEtiquetas").checked; renderAll(); });
+
+/* ---------- Teclado ---------- */
+window.addEventListener("keydown", function (e) {
+  var tag = (document.activeElement && document.activeElement.tagName) || "";
+  var escribiendo = tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT";
+  if ((e.key === "Delete" || e.key === "Backspace") && selectedId && !escribiendo) {
+    e.preventDefault();
+    pushHist();
+    state.shapes = state.shapes.filter(function (x) { return x.id !== selectedId; });
+    selectedId = null;
+    renderAll();
+    autosave();
+  }
+  if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "z" && !escribiendo) {
+    e.preventDefault();
+    deshacer();
+  }
+});
+
+/* ---------- Inicio ---------- */
+if (!cargarGuardado()) aplicarEstado(ejemploEditarTexto());
+renderAll();
+
+/* ---------- Prueba automática (?test=1) ---------- */
+if (typeof location !== "undefined" && location.search.indexOf("test=1") !== -1) {
+  (function smokeTest() {
+    var errores = [];
+    try {
+      aplicarEstado({ nombre: "Prueba", descripcion: "Prueba automática", canvas: { w: 1200, h: 800 }, shapes: [] });
+      var b = nuevaPieza("boton", 200, 100); b.etiqueta = "prueba-boton"; b.texto = "Guardar"; b.funcion = "Guarda los cambios.";
+      var c = nuevaPieza("campo", 200, 200); c.etiqueta = "prueba-campo"; c.texto = "Escribe tu nombre";
+      state.shapes.push(b, c);
+      renderAll();
+      var html = buildExportHTML(state);
+      if (html.indexOf('data-etiqueta="prueba-boton"') === -1) errores.push("falta data-etiqueta del botón");
+      if (html.indexOf('data-funcion="Guarda los cambios."') === -1) errores.push("falta data-funcion del botón");
+      if (html.indexOf('placeholder="Escribe tu nombre"') === -1) errores.push("falta placeholder del campo");
+      if (html.indexOf("CÓMO LEER ESTE ARCHIVO") === -1) errores.push("falta la guía para la IA");
+      if (document.querySelectorAll("#artboard .pieza").length !== 2) errores.push("el lienzo no muestra 2 piezas");
+      if (document.querySelectorAll("#artboard .etiqueta").length !== 2) errores.push("las etiquetas no se ven en el lienzo");
+      select(b.id);
+      if (!document.querySelector("#propsBody input")) errores.push("el panel de propiedades no se llenó");
+    } catch (err) { errores.push("excepción: " + err.message); }
+    var div = document.createElement("div");
+    div.id = "test-result";
+    div.textContent = errores.length ? "TEST FAIL: " + errores.join(" | ") : "TEST OK";
+    document.body.appendChild(div);
+  })();
+}
+</script>
+</body>
+</html>

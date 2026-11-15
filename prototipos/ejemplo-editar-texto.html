@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Editar texto en el editor</title>
+<style>
+  body { font-family: system-ui, sans-serif; background: #e5e7eb; margin: 0; padding: 24px; }
+  .barra { background: #111827; color: #fff; padding: 12px 16px; border-radius: 8px; margin: 0 auto 16px; max-width: 1200px; }
+  .barra small { color: #9ca3af; }
+  .lienzo { position: relative; background: #fff; margin: 0 auto; box-shadow: 0 2px 12px rgba(0,0,0,.15); width: 1200px; height: 800px; }
+  .pieza { position: absolute; box-sizing: border-box; display: flex; align-items: center; justify-content: center; text-align: center; overflow: hidden; padding: 4px; }
+  .rect { border: 2px solid #93c5fd; }
+  .boton { border: none; border-radius: 8px; cursor: pointer; }
+  .campo { border: 2px solid #cbd5e1; border-radius: 8px; background: #fff; }
+  .texto { background: transparent !important; border: none !important; justify-content: flex-start; }
+  .imagen { border: 2px dashed #9ca3af; }
+  .circulo { border-radius: 50%; }
+  .nota { border: 2px dashed #eab308; }
+  .etiqueta { position: absolute; top: 2px; left: 2px; background: rgba(37,99,235,.92); color: #fff; font-size: 10px; padding: 1px 5px; border-radius: 3px; white-space: nowrap; pointer-events: none; }
+</style>
+</head>
+<body>
+<!--
+PROTOTIPO — creado con la herramienta de prototipos de Locablo
+Nombre: Editar texto en el editor
+Descripción: Prototipo de cómo se edita el texto de una pieza dentro del editor de Locablo: haces clic en un texto de la página y se abre este panel.
+
+CÓMO LEER ESTE ARCHIVO (si eres una IA y te pasaron este prototipo):
+- Cada elemento tiene data-etiqueta: el nombre que le puso quien diseñó el prototipo. Usa esos nombres para referirte a cada parte.
+- Cada elemento tiene data-funcion: lo que debe hacer cuando el usuario interactúa con él. Si está vacío, es solo visual.
+- Las posiciones y tamaños son los del boceto: respétalos en la versión funcional.
+- Construye la versión funcional en HTML, CSS y JavaScript, con el comportamiento descrito en data-funcion.
+- Si algo no queda claro, pregunta antes de inventarlo.
+-->
+<div class="barra"><strong>Prototipo: Editar texto en el editor</strong><br><small>Prototipo de cómo se edita el texto de una pieza dentro del editor de Locablo: haces clic en un texto de la página y se abre este panel.</small></div>
+<div class="lienzo">
+    <div class="pieza rect" data-etiqueta="pagina-ejemplo" data-funcion="Vista previa de la página del negocio. Al hacer clic en un texto se abre el panel de editar texto." style="left:40px;top:40px;width:700px;height:720px;background:#ffffff;color:#64748b;font-size:16px;"><span class="etiqueta">pagina-ejemplo</span>Página de la taquería</div>
+    <p class="pieza texto" data-etiqueta="titulo-negocio" data-funcion="Título del negocio. Al hacer clic se abre el panel para editarlo." style="left:80px;top:80px;width:320px;height:50px;background:transparent;color:#111827;font-size:28px;"><span class="etiqueta">titulo-negocio</span>Taquería El Güero</p>
+    <p class="pieza texto" data-etiqueta="texto-descripcion" data-funcion="Descripción del negocio. Al hacer clic se abre el panel para editarla." style="left:80px;top:150px;width:420px;height:80px;background:transparent;color:#111827;font-size:18px;"><span class="etiqueta">texto-descripcion</span>Los mejores tacos al pastor de Reynosa.</p>
+    <div class="pieza rect" data-etiqueta="panel-editar-texto" data-funcion="Panel que aparece al hacer clic en un texto de la página." style="left:780px;top:40px;width:380px;height:720px;background:#f1f5f9;color:#334155;font-size:16px;"><span class="etiqueta">panel-editar-texto</span></div>
+    <p class="pieza texto" data-etiqueta="titulo-panel" data-funcion="" style="left:800px;top:60px;width:340px;height:40px;background:transparent;color:#111827;font-size:22px;"><span class="etiqueta">titulo-panel</span>Editar texto</p>
+    <input type="text" class="pieza campo" placeholder="Taquería El Güero" data-etiqueta="campo-texto" data-funcion="Al escribir aquí cambia el texto en la vista previa, en vivo." style="left:800px;top:120px;width:340px;height:48px;background:#ffffff;color:#111827;font-size:16px;">
+    <p class="pieza texto" data-etiqueta="etiqueta-tamano" data-funcion="" style="left:800px;top:200px;width:340px;height:30px;background:transparent;color:#111827;font-size:16px;"><span class="etiqueta">etiqueta-tamano</span>Tamaño de letra</p>
+    <button class="pieza boton" data-etiqueta="tamano-chico" data-funcion="Pone el texto en tamaño chico." style="left:800px;top:240px;width:100px;height:44px;background:#2563eb;color:#ffffff;font-size:16px;"><span class="etiqueta">tamano-chico</span>Chico</button>
+    <button class="pieza boton" data-etiqueta="tamano-mediano" data-funcion="Pone el texto en tamaño mediano." style="left:910px;top:240px;width:100px;height:44px;background:#2563eb;color:#ffffff;font-size:16px;"><span class="etiqueta">tamano-mediano</span>Mediano</button>
+    <button class="pieza boton" data-etiqueta="tamano-grande" data-funcion="Pone el texto en tamaño grande." style="left:1020px;top:240px;width:100px;height:44px;background:#2563eb;color:#ffffff;font-size:16px;"><span class="etiqueta">tamano-grande</span>Grande</button>
+    <p class="pieza texto" data-etiqueta="etiqueta-color" data-funcion="" style="left:800px;top:310px;width:340px;height:30px;background:transparent;color:#111827;font-size:16px;"><span class="etiqueta">etiqueta-color</span>Color</p>
+    <div class="pieza circulo" data-etiqueta="color-naranja" data-funcion="Pinta el texto de naranja." style="left:800px;top:350px;width:48px;height:48px;background:#f97316;color:#78350f;font-size:16px;"><span class="etiqueta">color-naranja</span></div>
+    <div class="pieza circulo" data-etiqueta="color-negro" data-funcion="Pinta el texto de negro." style="left:860px;top:350px;width:48px;height:48px;background:#111827;color:#78350f;font-size:16px;"><span class="etiqueta">color-negro</span></div>
+    <div class="pieza circulo" data-etiqueta="color-rojo" data-funcion="Pinta el texto de rojo." style="left:920px;top:350px;width:48px;height:48px;background:#dc2626;color:#78350f;font-size:16px;"><span class="etiqueta">color-rojo</span></div>
+    <button class="pieza boton" data-etiqueta="boton-negrita" data-funcion="Pone el texto en negrita." style="left:800px;top:430px;width:160px;height:48px;background:#2563eb;color:#ffffff;font-size:16px;"><span class="etiqueta">boton-negrita</span>Negrita</button>
+    <button class="pieza boton" data-etiqueta="boton-cursiva" data-funcion="Pone el texto en cursiva." style="left:980px;top:430px;width:160px;height:48px;background:#2563eb;color:#ffffff;font-size:16px;"><span class="etiqueta">boton-cursiva</span>Cursiva</button>
+    <button class="pieza boton" data-etiqueta="boton-guardar" data-funcion="Guarda el texto y cierra el panel." style="left:800px;top:520px;width:340px;height:52px;background:#16a34a;color:#ffffff;font-size:16px;"><span class="etiqueta">boton-guardar</span>Guardar cambios</button>
+    <div class="pieza nota" data-etiqueta="nota-funcion" data-funcion="Nota de diseño, no es un elemento de la página." style="left:800px;top:600px;width:340px;height:90px;background:#fef9c3;color:#713f12;font-size:14px;"><span class="etiqueta">nota-funcion</span>Al hacer clic en un texto de la página se abre este panel.</div>
+</div>
+</body>
+</html>

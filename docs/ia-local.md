@@ -253,6 +253,13 @@ curl https://api.groq.com/openai/v1/chat/completions \
 
 ## Parte 5 — Cómo pedir prototipos para Locablo
 
+> **Nuevo:** en el repo hay una herramienta para dibujar los prototipos
+> antes de pedirlos: `prototipos/app.html` (se abre con doble clic, sin
+> servidor). Dibujas el diseño con formas, le pones nombre a cada pieza
+> (etiqueta) y escribes qué debe hacer; luego descargas el HTML y se lo
+> pasas a la IA con el prompt de `prototipos/README.md`. El detalle
+> completo está ahí.
+
 La regla de oro con modelos chicos: **pieza por pieza, no la página
 completa.** Primero el menú, luego el formulario, luego la tarjeta.
 
