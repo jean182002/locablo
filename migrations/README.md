@@ -18,6 +18,9 @@ aplicada en la tabla `d1_migrations` y no la vuelve a aplicar.
   - Crea las tablas `email_verifications`, `password_resets` y
     `reserved_subdomains` (con la lista de nombres reservados).
   - Crea los índices nuevos.
+- `003_ayuda_ia.sql` — crea la tabla `ayuda_ia_uso` (una fila por
+  negocio y por día: cuántas ayudas con IA pidió y cuántos tokens
+  gastó). Solo suma una tabla; no toca nada de lo que ya existe.
 
 El archivo `schema.sql` de la raíz es el esquema completo NUEVO, solo
 para instalaciones desde cero. Si ya tienes una base, usa las

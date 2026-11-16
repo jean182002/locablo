@@ -172,6 +172,16 @@ JSON; así lo pide DeepSeek.)
   la API no. Pero a estos precios, el costo por cliente es de
   centavos.
 
+## Estado (16 nov 2026)
+
+El endpoint ya está en el Worker (`POST /api/ayuda-inicio`, migración
+`003_ayuda_ia.sql`, tabla `ayuda_ia_uso` para el límite de 3 ayudas
+por negocio al día). Todavía NO está activo para los clientes: falta
+poner la clave como secreto (`npx wrangler secret put
+DEEPSEEK_API_KEY`), probar la llamada real con el saldo de Jean y
+poner el botón en el editor. Sin clave, el endpoint responde
+`sin_ia` y el cliente sigue armando su página a mano.
+
 ## Siguiente paso (cuando Jean quiera)
 
 1. Revisar el saldo: entrar a `platform.deepseek.com` → Billing, o

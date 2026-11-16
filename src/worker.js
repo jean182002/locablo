@@ -146,6 +146,80 @@ async function esMiembro(env, userId, businessId) {
   return fila ? fila.role : null;
 }
 
+// ---------- Ayuda inicial con DeepSeek (IA opcional) ----------
+// Esta ayuda es SOLO un atajo al inicio: el cliente describe su negocio
+// con sus palabras y DeepSeek devuelve una instrucción chica en JSON
+// (qué piezas, qué textos, qué colores). El Worker arma la página con
+// NUESTRAS piezas, nunca con lo que la IA invente: la IA no escribe
+// HTML ni la página, solo la instrucción. Si no hay clave, no hay
+// saldo o DeepSeek falla, Locablo sigue igual y el cliente arma su
+// página a mano. La clave vive como secreto (DEEPSEEK_API_KEY), nunca
+// en el código ni en el navegador del cliente. El editor todavía NO
+// ofrece esta ayuda: el endpoint está listo, falta el botón.
+
+// Cuántas ayudas con IA puede pedir un negocio por día. Así nadie
+// puede gastar el saldo regenerando sin parar.
+const LIMITE_AYUDA_IA_POR_DIA = 3;
+
+// Los únicos tipos de pieza que la IA puede pedir. Son los mismos que
+// el Worker sabe dibujar en piezasAHtml. Si la IA pide otro tipo, se
+// ignora: el resultado siempre usa nuestras piezas.
+const TIPOS_PIEZA_IA = ["titulo", "texto", "foto", "whatsapp"];
+
+// La instrucción fija que se le manda a DeepSeek en cada llamada.
+// Es siempre la misma, así DeepSeek la guarda en caché y la entrada
+// sale casi gratis. Reglas duras: no inventar datos (sin foto sin URL,
+// sin WhatsApp sin teléfono), y responder solo con JSON.
+const INSTRUCCION_AYUDA_IA = `Eres el ayudante de Locablo, una herramienta para crear la página web de un negocio local en México. El cliente te describe su negocio y tú devuelves una instrucción en JSON para armar el inicio de su página con las piezas de Locablo. Responde solo con un objeto JSON, sin texto fuera del JSON.
+
+Formato exacto:
+{"piezas": [{"type": "titulo", "texto": "..."}, {"type": "texto", "texto": "..."}, {"type": "foto", "url": "...", "texto": "..."}, {"type": "whatsapp", "telefono": "...", "texto": "..."}]}
+
+Reglas:
+- Usa solo estos tipos: titulo, texto, foto, whatsapp. Nada más.
+- Entre 2 y 6 piezas. La primera pieza siempre es un titulo con el nombre del negocio.
+- Escribe los textos en español, con las palabras del cliente, cortos y claros. El titulo con 60 letras como máximo y cada texto con 200 como máximo.
+- NO inventes datos: solo pon una pieza foto si el cliente dio una dirección de imagen (http o https). Solo pon whatsapp si el cliente dio un número de teléfono (solo dígitos, con código de país si lo dio). Si no dio teléfono, no pongas whatsapp.
+- No pongas precios, horarios ni direcciones que el cliente no haya dicho.`;
+
+// Precio de DeepSeek (deepseek-flash, fuera de hora pico, sin caché):
+// entrada $0.15 y salida $0.60 por millón de tokens. Se usa como
+// estimado conservador: con caché sale más barato, nunca más caro.
+function estimarCostoUSD(tokensEntrada, tokensSalida) {
+  const costo = (tokensEntrada * 0.15 + tokensSalida * 0.6) / 1000000;
+  return Math.round(costo * 1000000) / 1000000; // 6 decimales
+}
+
+// Revisa la instrucción que devolvió DeepSeek y la limpia:
+// solo piezas conocidas, textos cortos, foto solo con URL real y
+// WhatsApp solo con teléfono. Devuelve la instrucción limpia o nada
+// si no quedó ninguna pieza válida.
+function validarInstruccionIA(datos) {
+  if (!datos || typeof datos !== "object" || !Array.isArray(datos.piezas)) return null;
+  const piezas = [];
+  for (const pieza of datos.piezas.slice(0, 6)) {
+    if (!pieza || typeof pieza !== "object") continue;
+    if (!TIPOS_PIEZA_IA.includes(pieza.type)) continue;
+    const texto = String(pieza.texto || "").trim().slice(0, 200);
+    if (pieza.type === "titulo" || pieza.type === "texto") {
+      if (!texto) continue;
+      piezas.push({ type: pieza.type, content: JSON.stringify({ texto }) });
+    } else if (pieza.type === "foto") {
+      const url = String(pieza.url || "").trim();
+      if (!/^https?:\/\/.+/.test(url)) continue;
+      piezas.push({ type: "foto", content: JSON.stringify({ url, texto }) });
+    } else if (pieza.type === "whatsapp") {
+      const telefono = String(pieza.telefono || "").replace(/[^0-9]/g, "");
+      if (telefono.length < 10) continue;
+      piezas.push({ type: "whatsapp", content: JSON.stringify({ telefono, texto: texto || "Escríbeme por WhatsApp" }) });
+    }
+  }
+  if (piezas.length === 0) return null;
+  // La primera pieza siempre es el título del negocio.
+  if (piezas[0].type !== "titulo") return null;
+  return { piezas };
+}
+
 // Límite de negocios por usuario: preparado, no se impone todavía.
 // Cuando se decida aplicarlo, POST /api/negocios revisará cuántos
 // negocios tiene el usuario antes de crear uno nuevo. Por ahora solo
@@ -371,6 +445,162 @@ async function api(peticion, env, url) {
       env.DB.prepare("DELETE FROM businesses WHERE id = ?").bind(businessId),
     ]);
     return json({ ok: true });
+  }
+
+  // Ayuda inicial con IA (POST /api/ayuda-inicio). Solo un miembro del
+  // negocio puede pedirla. El cliente describe su negocio y DeepSeek
+  // devuelve la instrucción (qué piezas, qué textos); el endpoint NO
+  // guarda piezas: solo devuelve la instrucción para que el editor la
+  // aplique cuando el usuario la acepte. Sin clave o sin saldo, la
+  // ayuda responde que no está disponible y el cliente sigue a mano.
+  // Solo las ayudas que salen bien cuentan para el límite del día.
+  if (url.pathname === "/api/ayuda-inicio" && peticion.method === "POST") {
+    const userId = await usuarioDeSesion(peticion, env);
+    if (!userId) return json({ error: "Entra primero con tu cuenta." }, 401);
+    let cuerpo;
+    try {
+      cuerpo = await peticion.json();
+    } catch {
+      return json({ error: "No entendí lo que me mandaste." }, 400);
+    }
+    const businessId = cuerpo.business_id;
+    const descripcion = String(cuerpo.descripcion || "").trim();
+    if (!businessId) return json({ error: "Falta el negocio." }, 400);
+    if (descripcion.length < 10 || descripcion.length > 500) {
+      return json({ error: "Cuéntame de tu negocio en 10 a 500 letras." }, 400);
+    }
+    const rol = await esMiembro(env, userId, businessId);
+    if (!rol) return json({ error: "No tienes acceso a este negocio." }, 403);
+
+    // Cuántas ayudas lleva hoy este negocio (la fecha es en UTC).
+    const hoy = new Date().toISOString().slice(0, 10);
+    let usoHoy = { cantidad: 0 };
+    try {
+      const fila = await env.DB.prepare(
+        "SELECT cantidad FROM ayuda_ia_uso WHERE business_id = ? AND fecha = ?"
+      ).bind(businessId, hoy).first();
+      if (fila) usoHoy = fila;
+    } catch {
+      // La tabla aún no existe (migración 003 sin aplicar): sin límite
+      // por hoy, pero la ayuda sigue funcionando.
+      usoHoy = { cantidad: 0 };
+    }
+    if (usoHoy.cantidad >= LIMITE_AYUDA_IA_POR_DIA) {
+      return json({
+        ok: false,
+        error: "limite",
+        mensaje: `Ya usaste las ${LIMITE_AYUDA_IA_POR_DIA} ayudas de hoy para este negocio. Mañana puedes pedir más, o arma tu página a mano.`,
+      }, 429);
+    }
+
+    // Sin clave no hay IA: se dice claro y el cliente sigue a mano.
+    if (!env.DEEPSEEK_API_KEY) {
+      return json({
+        ok: false,
+        error: "sin_ia",
+        mensaje: "La ayuda con IA no está lista todavía. Arma tu página a mano, que funciona igual.",
+      }, 503);
+    }
+
+    // La llamada a DeepSeek, con tiempo límite de 25 segundos.
+    let resp;
+    try {
+      const control = new AbortController();
+      const tiempo = setTimeout(() => control.abort(), 25000);
+      try {
+        resp = await fetch("https://api.deepseek.com/chat/completions", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "Authorization": "Bearer " + env.DEEPSEEK_API_KEY,
+          },
+          body: JSON.stringify({
+            model: "deepseek-flash",
+            response_format: { type: "json_object" },
+            max_tokens: 500,
+            temperature: 0.2,
+            messages: [
+              { role: "system", content: INSTRUCCION_AYUDA_IA },
+              { role: "user", content: descripcion },
+            ],
+          }),
+          signal: control.signal,
+        });
+      } finally {
+        clearTimeout(tiempo);
+      }
+    } catch {
+      return json({
+        ok: false,
+        error: "ia_no_disponible",
+        mensaje: "La ayuda con IA no respondió. Intenta de nuevo o arma tu página a mano.",
+      }, 502);
+    }
+    if (!resp.ok) {
+      // 402 = se acabó el saldo de DeepSeek.
+      if (resp.status === 402) {
+        return json({
+          ok: false,
+          error: "sin_saldo",
+          mensaje: "La ayuda con IA se quedó sin saldo. Arma tu página a mano mientras se recarga.",
+        }, 502);
+      }
+      return json({
+        ok: false,
+        error: "ia_no_disponible",
+        mensaje: "La ayuda con IA no respondió. Intenta de nuevo o arma tu página a mano.",
+      }, 502);
+    }
+    let datos;
+    try {
+      datos = await resp.json();
+    } catch {
+      return json({
+        ok: false,
+        error: "ia_no_disponible",
+        mensaje: "La ayuda con IA respondió algo raro. Intenta de nuevo o arma tu página a mano.",
+      }, 502);
+    }
+    let instruccion = null;
+    try {
+      instruccion = validarInstruccionIA(JSON.parse(datos.choices[0].message.content));
+    } catch {
+      instruccion = null;
+    }
+    if (!instruccion) {
+      return json({
+        ok: false,
+        error: "ia_no_disponible",
+        mensaje: "La ayuda con IA no armó una instrucción válida. Intenta de nuevo o arma tu página a mano.",
+      }, 502);
+    }
+
+    // Salió bien: se anota el uso de hoy (cantidad + tokens).
+    const uso = datos.usage || {};
+    const tokensEntrada = uso.prompt_tokens || 0;
+    const tokensSalida = uso.completion_tokens || 0;
+    try {
+      await env.DB.prepare(
+        `INSERT INTO ayuda_ia_uso (business_id, fecha, cantidad, tokens_entrada, tokens_salida)
+         VALUES (?, ?, 1, ?, ?)
+         ON CONFLICT(business_id, fecha) DO UPDATE SET
+           cantidad = cantidad + 1,
+           tokens_entrada = tokens_entrada + excluded.tokens_entrada,
+           tokens_salida = tokens_salida + excluded.tokens_salida`
+      ).bind(businessId, hoy, tokensEntrada, tokensSalida).run();
+    } catch {
+      // Si no se pudo anotar (tabla sin crear), la ayuda igual se entrega.
+    }
+    return json({
+      ok: true,
+      instruccion,
+      uso: {
+        tokens_entrada: tokensEntrada,
+        tokens_salida: tokensSalida,
+        costo_estimado_usd: estimarCostoUSD(tokensEntrada, tokensSalida),
+      },
+      limite: { usadas: usoHoy.cantidad + 1, maximo: LIMITE_AYUDA_IA_POR_DIA },
+    });
   }
 
   // Salir: se borra la sesión.

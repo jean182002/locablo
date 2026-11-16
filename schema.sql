@@ -88,6 +88,18 @@ CREATE TABLE IF NOT EXISTS password_resets (
 );
 CREATE INDEX IF NOT EXISTS idx_password_resets_user ON password_resets(user_id);
 
+-- Uso de la ayuda inicial con IA (DeepSeek): una fila por negocio y
+-- por día, con cuántas ayudas pidió y cuántos tokens gastó. El Worker
+-- la usa para el límite de 3 ayudas por negocio al día.
+CREATE TABLE IF NOT EXISTS ayuda_ia_uso (
+  business_id TEXT NOT NULL,
+  fecha TEXT NOT NULL,
+  cantidad INTEGER NOT NULL DEFAULT 0,
+  tokens_entrada INTEGER NOT NULL DEFAULT 0,
+  tokens_salida INTEGER NOT NULL DEFAULT 0,
+  PRIMARY KEY (business_id, fecha)
+);
+
 -- Subdominios reservados: nombres que nadie puede registrar como su
 -- negocio (www, api, admin, editor...). Son de infraestructura.
 CREATE TABLE IF NOT EXISTS reserved_subdomains (

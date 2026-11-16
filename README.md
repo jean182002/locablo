@@ -243,6 +243,11 @@ Para apagar el servidor: Ctrl + C en la terminal.
   (Listar, cambiar, crear y eliminar negocios desde el editor ya está
   hecho; ver "Mis negocios en el editor".)
 - Mover los nameservers desde Hostinger.
+- La ayuda inicial con IA (DeepSeek) está lista en el Worker
+  (`POST /api/ayuda-inicio`, ver `docs/deepseek.md`), pero SIN activar
+  para los clientes: falta poner la clave como secreto
+  (`npx wrangler secret put DEEPSEEK_API_KEY`), probar la llamada real
+  y poner el botón en el editor.
 
 ## Pendiente (no implementado)
 
