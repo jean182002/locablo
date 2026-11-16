@@ -177,7 +177,7 @@ Formato exacto:
 
 Reglas:
 - Usa solo estos tipos: titulo, texto, foto, whatsapp. Nada más.
-- Entre 2 y 6 piezas. La primera pieza siempre es un titulo con el nombre del negocio.
+- Entre 2 y 5 piezas. La primera pieza siempre es un titulo con el nombre del negocio.
 - Escribe los textos en español, con las palabras del cliente, cortos y claros. El titulo con 60 letras como máximo y cada texto con 200 como máximo.
 - NO inventes datos: solo pon una pieza foto si el cliente dio una dirección de imagen (http o https). Solo pon whatsapp si el cliente dio un número de teléfono (solo dígitos, con código de país si lo dio). Si no dio teléfono, no pongas whatsapp.
 - No pongas precios, horarios ni direcciones que el cliente no haya dicho.`;
@@ -197,7 +197,7 @@ function estimarCostoUSD(tokensEntrada, tokensSalida) {
 function validarInstruccionIA(datos) {
   if (!datos || typeof datos !== "object" || !Array.isArray(datos.piezas)) return null;
   const piezas = [];
-  for (const pieza of datos.piezas.slice(0, 6)) {
+  for (const pieza of datos.piezas.slice(0, 5)) {
     if (!pieza || typeof pieza !== "object") continue;
     if (!TIPOS_PIEZA_IA.includes(pieza.type)) continue;
     const texto = String(pieza.texto || "").trim().slice(0, 200);

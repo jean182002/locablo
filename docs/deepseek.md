@@ -113,15 +113,19 @@ Reglas del diseño:
 1. **La IA solo genera la instrucción, nunca la página.** Así el
    resultado siempre usa nuestros recursos, bien hechos, y no sale una
    página distinta cada vez.
-2. **El catálogo es fijo** (las piezas que ya tenemos), así DeepSeek lo
+2. **Todo listo de nuestro lado, la IA solo elige poco.** El catálogo
+   de piezas y los textos base ya están escritos por nosotros; la IA
+   solo arma una instrucción chica de **2 a 5 piezas como máximo** (no
+   genera 1000 cosas, dice 5). Lo básico y barato primero.
+3. **El catálogo es fijo** (las piezas que ya tenemos), así DeepSeek lo
    guarda en caché y la entrada sale casi gratis.
-3. **Modelo barato, respuesta corta:** `deepseek-flash`, sin modo de
+4. **Modelo barato, respuesta corta:** `deepseek-flash`, sin modo de
    razonamiento, `max_tokens: 500`, temperatura baja (0.2) para que el
    JSON salga igual cada vez.
-4. **Límite por negocio:** por ejemplo 3 generaciones con IA por
+5. **Límite por negocio:** por ejemplo 3 generaciones con IA por
    negocio al día, y un tope mensual en el servidor. Así nadie puede
    gastar el saldo regenerando sin parar.
-5. **Si algo falla, no pasa nada:** sin clave, sin saldo, sin internet
+6. **Si algo falla, no pasa nada:** sin clave, sin saldo, sin internet
    o error de DeepSeek, Locablo sigue igual y el cliente arma su página
    a mano. La IA es un atajo al inicio, no un requisito.
 6. **La clave nunca va en el código ni en el navegador.** Se guarda
