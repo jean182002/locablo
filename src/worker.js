@@ -633,10 +633,13 @@ export default {
     // En la computadora, localhost funciona igual que locablo.com:
     // localhost es la página principal y tienda1.localhost es un negocio.
     const esLocal = host === "localhost" || host.endsWith(".localhost");
+    // La dirección de pruebas de Cloudflare (locablo.rs-cedora.workers.dev)
+    // también muestra la página principal, para probar antes de mover el dominio.
+    const esWorkersDev = host.endsWith(".workers.dev");
     const dominio = esLocal ? "localhost" : "locablo.com";
 
     // La página principal: locablo.com
-    if (host === dominio || host === "www." + dominio) {
+    if (host === dominio || host === "www." + dominio || esWorkersDev) {
       // El editor pide sesión; sin ella, vuelve a la página principal.
       if (url.pathname === "/editor") {
         const userId = await usuarioDeSesion(peticion, env);
