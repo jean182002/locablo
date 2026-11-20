@@ -239,6 +239,21 @@ async function misNegocios(env, userId) {
   return res.results || [];
 }
 
+// ¿Es un color hex válido (#rgb o #rrggbb)? Solo esos se pintan:
+// así ningún texto raro del cliente puede colarse en el estilo.
+function esColorHex(valor) {
+  return typeof valor === "string" && /^#([0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/.test(valor);
+}
+
+// Arma el estilo de una pieza con su color de texto y su fondo,
+// solo si son colores hex válidos. Sin color, queda como antes.
+function estiloPieza(datos) {
+  const partes = [];
+  if (esColorHex(datos.color)) partes.push("color:" + datos.color);
+  if (esColorHex(datos.fondo)) partes.push("background:" + datos.fondo);
+  return partes.length > 0 ? ` style="${partes.join(";")}"` : "";
+}
+
 // Convierte las piezas de un negocio en HTML sencillo.
 function piezasAHtml(piezas) {
   if (!piezas || piezas.length === 0) {
@@ -252,12 +267,16 @@ function piezasAHtml(piezas) {
   return piezas.map((pieza) => {
     let datos = {};
     try { datos = JSON.parse(pieza.content || "{}"); } catch { datos = {}; }
-    if (pieza.type === "titulo") return `<h2>${escapar(datos.texto || "")}</h2>`;
-    if (pieza.type === "texto") return `<p>${escapar(datos.texto || "")}</p>`;
-    if (pieza.type === "foto") return `<img src="${escapar(datos.url || "")}" alt="${escapar(datos.texto || "")}">`;
+    if (pieza.type === "titulo") return `<h2${estiloPieza(datos)}>${escapar(datos.texto || "")}</h2>`;
+    if (pieza.type === "texto") return `<p${estiloPieza(datos)}>${escapar(datos.texto || "")}</p>`;
+    if (pieza.type === "foto") {
+      const img = `<img src="${escapar(datos.url || "")}" alt="${escapar(datos.texto || "")}">`;
+      // La foto no tiene texto que pintar: solo se le pone fondo.
+      return esColorHex(datos.fondo) ? `<div style="background:${datos.fondo}">${img}</div>` : img;
+    }
     if (pieza.type === "whatsapp") {
       const tel = escapar(datos.telefono || "");
-      return `<a class="boton" href="https://wa.me/${tel}">${escapar(datos.texto || "WhatsApp")}</a>`;
+      return `<a class="boton"${estiloPieza(datos)} href="https://wa.me/${tel}">${escapar(datos.texto || "WhatsApp")}</a>`;
     }
     return "";
   }).join("\n");
@@ -444,6 +463,106 @@ async function api(peticion, env, url) {
       env.DB.prepare("DELETE FROM memberships WHERE business_id = ?").bind(businessId),
       env.DB.prepare("DELETE FROM businesses WHERE id = ?").bind(businessId),
     ]);
+    return json({ ok: true });
+  }
+
+  // Guardar las piezas de un negocio (POST /api/negocios/<id>/piezas).
+  // Solo un miembro del negocio (dueño o colaborador) puede hacerlo.
+  // Recibe {"piezas": [{type, content}]} y reemplaza todas las piezas
+  // viejas por las nuevas, en orden (position 0, 1, 2...), en un solo
+  // batch. Sin piezas nuevas, la página queda vacía (sin piezas).
+  if (url.pathname.startsWith("/api/negocios/") && url.pathname.endsWith("/piezas") && peticion.method === "POST") {
+    const userId = await usuarioDeSesion(peticion, env);
+    if (!userId) return json({ error: "Entra primero con tu cuenta." }, 401);
+    const businessId = decodeURIComponent(url.pathname.slice("/api/negocios/".length, -"/piezas".length));
+    if (!businessId) return json({ error: "Falta el negocio." }, 400);
+    const negocio = await env.DB.prepare(
+      "SELECT id FROM businesses WHERE id = ?"
+    ).bind(businessId).first();
+    if (!negocio) return json({ error: "Ese negocio no existe." }, 404);
+    const rol = await esMiembro(env, userId, businessId);
+    if (!rol) return json({ error: "No tienes acceso a este negocio." }, 403);
+    let cuerpo;
+    try {
+      cuerpo = await peticion.json();
+    } catch {
+      return json({ error: "No entendí lo que me mandaste." }, 400);
+    }
+    if (!cuerpo || !Array.isArray(cuerpo.piezas)) {
+      return json({ error: "Manda tus piezas en una lista." }, 400);
+    }
+    if (cuerpo.piezas.length > 20) {
+      return json({ error: "Son demasiadas piezas: máximo 20 por página." }, 400);
+    }
+    const TIPOS_PIEZA = ["titulo", "texto", "foto", "whatsapp"];
+    const limpias = [];
+    for (const pieza of cuerpo.piezas) {
+      if (!pieza || typeof pieza !== "object") {
+        return json({ error: "Una pieza venía vacía o incompleta." }, 400);
+      }
+      if (!TIPOS_PIEZA.includes(pieza.type)) {
+        return json({ error: "Hay una pieza de un tipo que no conozco." }, 400);
+      }
+      // El contenido llega como texto JSON (igual que las demás piezas).
+      // Si llega ya como objeto, también se acepta.
+      let datos = null;
+      if (typeof pieza.content === "string") {
+        try { datos = JSON.parse(pieza.content); } catch { datos = null; }
+      } else if (pieza.content && typeof pieza.content === "object") {
+        datos = pieza.content;
+      }
+      if (!datos || typeof datos !== "object" || Array.isArray(datos)) {
+        return json({ error: "Una pieza trae un contenido que no entiendo." }, 400);
+      }
+      const texto = String(datos.texto || "").trim();
+      if (pieza.type === "titulo") {
+        if (!texto) return json({ error: "El título no puede ir vacío." }, 400);
+        if (texto.length > 60) return json({ error: "El título no puede pasar de 60 letras." }, 400);
+      }
+      if (pieza.type === "texto") {
+        if (!texto) return json({ error: "El texto no puede ir vacío." }, 400);
+        if (texto.length > 200) return json({ error: "El texto no puede pasar de 200 letras." }, 400);
+      }
+      if (texto.length > 200) {
+        return json({ error: "Un texto pasa de 200 letras." }, 400);
+      }
+      if (pieza.type === "foto") {
+        const urlFoto = String(datos.url || "").trim();
+        if (!/^https?:\/\/.+/.test(urlFoto)) {
+          return json({ error: "La foto necesita una dirección que empiece con http:// o https://." }, 400);
+        }
+      }
+      if (pieza.type === "whatsapp") {
+        const telefono = String(datos.telefono || "").trim();
+        if (!/^\d{10,15}$/.test(telefono)) {
+          return json({ error: "El WhatsApp necesita solo números (mínimo 10)." }, 400);
+        }
+      }
+      if (datos.color !== undefined && datos.color !== "" && !esColorHex(datos.color)) {
+        return json({ error: "El color del texto no es válido. Elige uno de la lista." }, 400);
+      }
+      if (datos.fondo !== undefined && datos.fondo !== "" && !esColorHex(datos.fondo)) {
+        return json({ error: "El color de fondo no es válido. Elige uno de la lista." }, 400);
+      }
+      // Se guarda limpio: solo los campos que cada tipo usa.
+      const guardado = {};
+      if (texto) guardado.texto = texto;
+      if (pieza.type === "foto") guardado.url = String(datos.url || "").trim();
+      if (pieza.type === "whatsapp") guardado.telefono = String(datos.telefono || "").trim();
+      if (datos.color) guardado.color = datos.color;
+      if (datos.fondo) guardado.fondo = datos.fondo;
+      limpias.push({ type: pieza.type, content: JSON.stringify(guardado) });
+    }
+    const operaciones = [
+      env.DB.prepare("DELETE FROM pieces WHERE business_id = ?").bind(businessId),
+    ];
+    limpias.forEach((pieza, i) => {
+      operaciones.push(
+        env.DB.prepare("INSERT INTO pieces (id, business_id, type, content, position) VALUES (?, ?, ?, ?, ?)")
+          .bind(nuevoId(), businessId, pieza.type, pieza.content, i)
+      );
+    });
+    await env.DB.batch(operaciones);
     return json({ ok: true });
   }
 
@@ -640,11 +759,16 @@ export default {
 
     // La página principal: locablo.com
     if (host === dominio || host === "www." + dominio || esWorkersDev) {
-      // El editor pide sesión; sin ella, vuelve a la página principal.
-      if (url.pathname === "/editor") {
+      // El editor y el panel piden sesión; sin ella, se va al login.
+      if (url.pathname === "/editor" || url.pathname === "/editor.html") {
         const userId = await usuarioDeSesion(peticion, env);
-        if (!userId) return Response.redirect(new URL("/", peticion.url), 302);
+        if (!userId) return Response.redirect(new URL("/login.html", peticion.url), 302);
         return env.ASSETS.fetch(new Request(url.origin + "/editor.html"));
+      }
+      if (url.pathname === "/dashboard" || url.pathname === "/dashboard.html") {
+        const userId = await usuarioDeSesion(peticion, env);
+        if (!userId) return Response.redirect(new URL("/login.html", peticion.url), 302);
+        return env.ASSETS.fetch(new Request(url.origin + "/dashboard.html"));
       }
       return env.ASSETS.fetch(peticion);
     }

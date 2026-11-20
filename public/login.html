@@ -1,0 +1,69 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Entrar — Locablo</title>
+<style>
+  body { font-family: system-ui, sans-serif; margin: 0; padding: 16px; color: #222; background: #fff; }
+  main { max-width: 640px; margin: 0 auto; }
+  header { padding: 8px 0 16px; }
+  header a { color: #0a7a3d; font-weight: 700; text-decoration: none; font-size: 24px; }
+  h1 { font-size: 28px; margin: 16px 0 8px; }
+  p { font-size: 17px; line-height: 1.5; }
+  label { display: block; margin: 16px 0 6px; font-weight: 700; }
+  input { width: 100%; min-height: 48px; padding: 14px; font-size: 17px; border: 1px solid #999; border-radius: 10px; box-sizing: border-box; }
+  button { display: block; width: 100%; min-height: 48px; padding: 14px 20px; font-size: 17px; font-weight: 700; border: 0; border-radius: 10px; background: #0a7a3d; color: #fff; cursor: pointer; margin-top: 16px; }
+  button:disabled { opacity: .5; }
+  .error { color: #b00020; }
+</style>
+</head>
+<body>
+<main>
+  <header><a href="/">Locablo</a></header>
+  <h1>Entra a tu cuenta</h1>
+  <p>Escribe tu correo y tu contraseña para ver tus negocios.</p>
+
+  <form id="form-login">
+    <label for="correo">Correo</label>
+    <input id="correo" type="email" required placeholder="tucorreo@ejemplo.com" autocomplete="email">
+
+    <label for="contrasena">Contraseña</label>
+    <input id="contrasena" type="password" required autocomplete="current-password">
+
+    <p id="mensaje" class="error"></p>
+    <button id="btn" type="submit">Entrar</button>
+  </form>
+
+  <p>¿No tienes cuenta? <a href="/registro.html">Crea una aquí</a>.</p>
+</main>
+<script>
+  document.getElementById("form-login").addEventListener("submit", async (ev) => {
+    ev.preventDefault();
+    const mensaje = document.getElementById("mensaje");
+    const btn = document.getElementById("btn");
+    mensaje.textContent = "";
+    btn.disabled = true;
+    btn.textContent = "Entrando…";
+    try {
+      const resp = await fetch("/api/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          email: document.getElementById("correo").value,
+          password: document.getElementById("contrasena").value
+        })
+      });
+      const dato = await resp.json();
+      if (!resp.ok) { mensaje.textContent = dato.error || "No se pudo entrar."; return; }
+      window.location.href = "/dashboard.html";
+    } catch (e) {
+      mensaje.textContent = "No se pudo conectar con el servidor. Inténtalo de nuevo.";
+    } finally {
+      btn.disabled = false;
+      btn.textContent = "Entrar";
+    }
+  });
+</script>
+</body>
+</html>

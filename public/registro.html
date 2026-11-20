@@ -1,0 +1,123 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Crear cuenta — Locablo</title>
+<style>
+  body { font-family: system-ui, sans-serif; margin: 0; padding: 16px; color: #222; background: #fff; }
+  main { max-width: 640px; margin: 0 auto; }
+  header { padding: 8px 0 16px; }
+  header a { color: #0a7a3d; font-weight: 700; text-decoration: none; font-size: 24px; }
+  h1 { font-size: 28px; margin: 16px 0 8px; }
+  p { font-size: 17px; line-height: 1.5; }
+  label { display: block; margin: 16px 0 6px; font-weight: 700; }
+  input { width: 100%; min-height: 48px; padding: 14px; font-size: 17px; border: 1px solid #999; border-radius: 10px; box-sizing: border-box; }
+  button { display: block; width: 100%; min-height: 48px; padding: 14px 20px; font-size: 17px; font-weight: 700; border: 0; border-radius: 10px; background: #0a7a3d; color: #fff; cursor: pointer; margin-top: 16px; }
+  button:disabled { opacity: .5; }
+  a.boton { display: block; width: 100%; min-height: 48px; padding: 14px 20px; font-size: 17px; font-weight: 700; border: 2px solid #0a7a3d; border-radius: 10px; background: #fff; color: #0a7a3d; text-align: center; text-decoration: none; box-sizing: border-box; margin-top: 16px; }
+  .vista { margin-top: 12px; padding: 12px; background: #f2f2f2; border-radius: 10px; }
+  .libre { color: #0a7a3d; font-weight: 700; }
+  .ocupado { color: #b00020; font-weight: 700; }
+  .error { color: #b00020; }
+  .ayuda { color: #555; font-size: 14px; margin: 4px 0 0; }
+</style>
+</head>
+<body>
+<main>
+  <header><a href="/">Locablo</a></header>
+  <h1>Crea tu cuenta</h1>
+  <p>Con tu cuenta creas tu página y la editas cuando quieras.</p>
+
+  <form id="form-registro">
+    <label for="nombre">Nombre de tu negocio</label>
+    <input id="nombre" type="text" placeholder="Por ejemplo: Taquería El Güero" autocomplete="off" required>
+    <div class="vista" id="vista">Escribe el nombre y aquí verás tu dirección.</div>
+
+    <label for="correo">Correo</label>
+    <input id="correo" type="email" required placeholder="tucorreo@ejemplo.com" autocomplete="email">
+
+    <label for="contrasena">Contraseña</label>
+    <input id="contrasena" type="password" required minlength="8" placeholder="Mínimo 8 caracteres" autocomplete="new-password">
+    <p class="ayuda">Tu contraseña debe tener mínimo 8 caracteres.</p>
+
+    <p id="mensaje" class="error"></p>
+    <button id="btn" type="submit">Crear mi página</button>
+  </form>
+
+  <p>¿Ya tienes cuenta? <a href="/login.html">Entra aquí</a>.</p>
+</main>
+<script>
+  // Convierte el nombre en subdominio: minúsculas, sin acentos, guiones.
+  function aSubdominio(nombre) {
+    return (nombre || "").toLowerCase()
+      .normalize("NFD").replace(/[\u0300-\u036f]/g, "")
+      .replace(/[^a-z0-9]+/g, "-")
+      .replace(/^-+|-+$/g, "").slice(0, 63);
+  }
+  const campo = document.getElementById("nombre");
+  const vista = document.getElementById("vista");
+  const mensaje = document.getElementById("mensaje");
+  let tiempo = null;
+
+  // Si se llegó desde la página principal, el nombre ya viene escrito.
+  const params = new URLSearchParams(location.search);
+  if (params.get("nombre")) {
+    campo.value = params.get("nombre");
+    campo.dispatchEvent(new Event("input"));
+  }
+
+  // Revisa en vivo si la dirección está libre, mientras escribes.
+  campo.addEventListener("input", () => {
+    const subdominio = aSubdominio(campo.value);
+    if (!subdominio) { vista.textContent = "Escribe el nombre y aquí verás tu dirección."; return; }
+    vista.innerHTML = "Tu dirección será: <b>" + subdominio + ".locablo.com</b><br>Revisando si está libre…";
+    clearTimeout(tiempo);
+    tiempo = setTimeout(async () => {
+      try {
+        const resp = await fetch("/api/disponible", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ subdomain: subdominio })
+        });
+        const dato = await resp.json();
+        vista.innerHTML = dato.libre
+          ? "Tu dirección será: <b>" + dato.subdomain + ".locablo.com</b><br><span class='libre'>Está libre.</span>"
+          : "Tu dirección sería: <b>" + dato.subdomain + ".locablo.com</b><br><span class='ocupado'>" + (dato.motivo || "Ya está ocupado. Prueba con otro nombre.") + "</span>";
+      } catch (e) {
+        vista.innerHTML = "Tu dirección será: <b>" + subdominio + ".locablo.com</b><br>(Aún no se pudo revisar si está libre.)";
+      }
+    }, 500);
+  });
+
+  document.getElementById("form-registro").addEventListener("submit", async (ev) => {
+    ev.preventDefault();
+    mensaje.textContent = "";
+    const btn = document.getElementById("btn");
+    const contrasena = document.getElementById("contrasena").value;
+    if (contrasena.length < 8) { mensaje.textContent = "Tu contraseña debe tener mínimo 8 caracteres."; return; }
+    btn.disabled = true;
+    btn.textContent = "Creando…";
+    try {
+      const resp = await fetch("/api/registro", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          email: document.getElementById("correo").value,
+          password: contrasena,
+          name: campo.value
+        })
+      });
+      const dato = await resp.json();
+      if (!resp.ok) { mensaje.textContent = dato.error || "No se pudo crear tu cuenta."; return; }
+      window.location.href = "/dashboard.html";
+    } catch (e) {
+      mensaje.textContent = "No se pudo conectar con el servidor. Inténtalo de nuevo.";
+    } finally {
+      btn.disabled = false;
+      btn.textContent = "Crear mi página";
+    }
+  });
+</script>
+</body>
+</html>

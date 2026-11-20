@@ -5,41 +5,83 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Mi editor — Locablo</title>
 <style>
-  body { font-family: system-ui, sans-serif; margin: 0; padding: 24px; color: #222; }
-  main { max-width: 560px; margin: 0 auto; }
-  label { display: block; margin: 16px 0 6px; font-weight: bold; }
-  input { width: 100%; padding: 12px; font-size: 16px; border: 1px solid #999; border-radius: 8px; box-sizing: border-box; }
-  button { padding: 10px 16px; font-size: 15px; border: 1px solid #999; border-radius: 8px; background: #fff; }
+  body { font-family: system-ui, sans-serif; margin: 0; padding: 16px; color: #222; background: #fff; }
+  main { max-width: 640px; margin: 0 auto; padding-bottom: 40px; }
+  header { display: flex; justify-content: space-between; align-items: center; padding: 8px 0 16px; }
+  header .logo { font-size: 24px; font-weight: 800; color: #0a7a3d; }
+  header button { width: auto; min-height: 44px; margin-top: 0; padding: 10px 16px; font-size: 15px; }
+  h1 { font-size: 26px; margin: 8px 0 4px; }
+  h2 { font-size: 22px; margin: 32px 0 8px; }
+  h3 { font-size: 18px; margin: 0 0 8px; }
+  p { font-size: 17px; line-height: 1.5; }
+  .direccion { color: #0a7a3d; font-weight: 700; }
+  label { display: block; margin: 16px 0 6px; font-weight: 700; }
+  input, textarea { width: 100%; min-height: 48px; padding: 14px; font-size: 17px; border: 1px solid #999; border-radius: 10px; box-sizing: border-box; }
+  textarea { min-height: 96px; }
+  button { display: block; width: 100%; min-height: 48px; padding: 14px 20px; font-size: 17px; font-weight: 700; border: 0; border-radius: 10px; background: #0a7a3d; color: #fff; cursor: pointer; margin-top: 12px; }
   button:disabled { opacity: .5; }
-  .vista { margin-top: 12px; padding: 12px; background: #f2f2f2; border-radius: 8px; }
-  .libre { color: #0a7a3d; font-weight: bold; }
-  .ocupado { color: #b00020; font-weight: bold; }
+  button.secundario { background: #fff; color: #0a7a3d; border: 2px solid #0a7a3d; }
+  a.boton { display: block; width: 100%; min-height: 48px; padding: 14px 20px; font-size: 17px; font-weight: 700; border: 0; border-radius: 10px; background: #0a7a3d; color: #fff; text-align: center; text-decoration: none; box-sizing: border-box; margin-top: 12px; }
+  a.boton.secundario { background: #fff; color: #0a7a3d; border: 2px solid #0a7a3d; }
+  .vista { margin-top: 12px; padding: 12px; background: #f2f2f2; border-radius: 10px; }
+  .libre { color: #0a7a3d; font-weight: 700; }
+  .ocupado { color: #b00020; font-weight: 700; }
   .error { color: #b00020; }
-  .aviso { padding: 12px; background: #fff4cc; border-radius: 8px; }
-  ul { padding-left: 20px; }
-  #lista-negocios { padding-left: 0; list-style: none; }
-  #lista-negocios li { cursor: pointer; padding: 10px 12px; border-radius: 8px; margin-bottom: 6px; border: 1px solid #ddd; }
-  #lista-negocios li.seleccionado { background: #e6f4ea; border-color: #0a7a3d; font-weight: bold; }
-  .rol { color: #555; font-size: 13px; font-weight: normal; }
-  .panel-eliminar { border: 2px solid #b00020; border-radius: 8px; padding: 16px; margin-top: 16px; background: #fff5f5; }
-  .peligro { border-color: #b00020; color: #b00020; }
-  #cuenta-atras { font-size: 20px; font-weight: bold; }
+  .ok { color: #0a7a3d; font-weight: 700; }
+
+  /* Lista compacta de negocios: fichas en una fila con desplazamiento. */
+  .chips { display: flex; gap: 8px; overflow-x: auto; padding: 4px 0 12px; }
+  .chips button { flex: 0 0 auto; width: auto; min-height: 44px; margin-top: 0; padding: 10px 16px; font-size: 15px; background: #f2f2f2; color: #222; border: 1px solid #ddd; }
+  .chips button.seleccionado { background: #e6f4ea; border-color: #0a7a3d; color: #0a7a3d; }
+
+  /* Eliminar: 3 confirmaciones. */
+  .panel-eliminar { border: 2px solid #b00020; border-radius: 12px; padding: 16px; margin-top: 16px; background: #fff5f5; }
+  .peligro { border-color: #b00020; color: #b00020; background: #fff; }
+  button.peligro { background: #b00020; color: #fff; }
+  #cuenta-atras { font-size: 20px; font-weight: 700; }
+
+  /* Piezas: vista previa en vivo. */
+  .pieza { border: 1px solid #ddd; border-radius: 12px; padding: 12px; margin-bottom: 12px; background: #fff; }
+  .pieza h2 { margin: 0 0 4px; font-size: 24px; }
+  .pieza p { margin: 0; }
+  .pieza img { max-width: 100%; border-radius: 8px; display: block; }
+  .pieza a.boton-ws { display: inline-block; margin-top: 8px; padding: 12px 20px; background: #25d366; color: #fff; text-decoration: none; border-radius: 10px; font-weight: 700; }
+  .pieza .controles { display: flex; gap: 8px; margin-top: 12px; }
+  .pieza .controles button { width: auto; flex: 1; min-height: 44px; margin-top: 0; padding: 10px 8px; font-size: 15px; background: #f2f2f2; color: #222; border: 1px solid #ddd; }
+  .pieza .controles button.borrar { color: #b00020; border-color: #b00020; }
+  .pieza .toca { color: #555; font-size: 14px; margin-top: 8px; }
+  .sin-piezas { border: 2px dashed #ccc; border-radius: 12px; padding: 20px 16px; text-align: center; color: #555; }
+
+  /* Hoja inferior para editar una pieza. */
+  .fondo-hoja { position: fixed; inset: 0; background: rgba(0,0,0,.4); z-index: 10; }
+  .hoja { position: fixed; left: 0; right: 0; bottom: 0; z-index: 11; background: #fff; border-radius: 16px 16px 0 0; padding: 16px 16px 32px; max-width: 640px; margin: 0 auto; max-height: 85vh; overflow-y: auto; box-sizing: border-box; }
+  .hoja h3 { font-size: 20px; margin: 4px 0 8px; }
+  .muestras { display: flex; flex-wrap: wrap; gap: 8px; margin: 8px 0 4px; }
+  .muestra { width: 48px; height: 48px; min-height: 48px; margin-top: 0; padding: 0; border-radius: 50%; border: 2px solid #ccc; background: #fff; }
+  .muestra.elegida { border: 3px solid #0a7a3d; outline: 2px solid #0a7a3d; outline-offset: 2px; }
+  .muestra.sin-color { font-size: 13px; color: #555; border-radius: 10px; width: auto; padding: 0 12px; }
 </style>
 </head>
 <body>
 <main>
+  <header>
+    <span class="logo">Locablo</span>
+    <button id="salir" type="button">Salir</button>
+  </header>
+
   <h1 id="titulo">Mi editor</h1>
-  <p id="direccion"></p>
+  <p id="direccion" class="direccion"></p>
 
   <h2>Mis negocios</h2>
-  <ul id="lista-negocios"></ul>
-  <p id="sin-negocios" hidden>No tienes negocios todavía. Crea uno.</p>
+  <div class="chips" id="chips"></div>
+  <p id="sin-negocios" hidden>No tienes negocios todavía. Crea uno abajo.</p>
+  <button id="btn-eliminar-negocio" type="button" class="peligro" hidden>Eliminar este negocio</button>
 
   <div id="panel-eliminar" class="panel-eliminar" hidden>
     <div id="paso-1">
       <p id="texto-paso-1"></p>
       <button id="btn-si-eliminar" type="button" class="peligro">Sí, eliminar</button>
-      <button id="btn-cancelar-1" type="button">Cancelar</button>
+      <button id="btn-cancelar-1" type="button" class="secundario">Cancelar</button>
     </div>
     <div id="paso-2" hidden>
       <p>Para confirmar, escribe el nombre exacto del negocio:</p>
@@ -47,7 +89,7 @@
       <input id="nombre-confirmar" type="text" autocomplete="off" placeholder="Escribe el nombre exacto">
       <p id="error-eliminar" class="error"></p>
       <button id="btn-continuar" type="button" class="peligro" disabled>Continuar</button>
-      <button id="btn-cancelar-2" type="button">Cancelar</button>
+      <button id="btn-cancelar-2" type="button" class="secundario">Cancelar</button>
     </div>
     <div id="paso-3" hidden>
       <p id="cuenta-atras">Eliminando... 10</p>
@@ -65,10 +107,31 @@
   </form>
 
   <h2>Mis piezas</h2>
-  <ul id="piezas"></ul>
-  <p class="aviso">Agregar, mover y recolorear piezas con la mano es el siguiente paso (viernes/sábado). Por ahora aquí ves tu negocio y sus piezas.</p>
-  <p><a id="ver" href="#">Ver mi página</a> · <button id="salir" type="button">Salir</button></p>
+  <p>Toca una pieza para cambiar su texto o sus colores. Los botones de abajo agregan piezas nuevas.</p>
+  <div id="vista-piezas"></div>
+  <div id="sin-piezas" class="sin-piezas" hidden>
+    <p><b>Todavía no tienes piezas.</b></p>
+    <p>Agrega un título, un texto, una foto o tu botón de WhatsApp con los botones de abajo.</p>
+  </div>
+
+  <button id="btn-titulo" type="button">＋ Agregar título</button>
+  <button id="btn-texto" type="button">＋ Agregar texto</button>
+  <button id="btn-foto" type="button">＋ Agregar foto</button>
+  <button id="btn-whatsapp" type="button">＋ Agregar WhatsApp</button>
+
+  <p id="mensaje-guardar"></p>
+  <button id="btn-guardar" type="button">Guardar mi página</button>
+  <a id="ver" class="boton secundario" href="#" target="_blank">Ver mi página</a>
 </main>
+
+<!-- Hoja inferior para editar una pieza -->
+<div id="fondo-hoja" class="fondo-hoja" hidden></div>
+<div id="hoja" class="hoja" hidden>
+  <h3 id="hoja-titulo">Editar pieza</h3>
+  <div id="hoja-campos"></div>
+  <button id="hoja-listo" type="button">Listo</button>
+</div>
+
 <script>
   // Convierte el nombre en subdominio: minúsculas, sin acentos, guiones.
   function aSubdominio(nombre) {
@@ -76,6 +139,13 @@
       .normalize("NFD").replace(/[\u0300-\u036f]/g, "")
       .replace(/[^a-z0-9]+/g, "-")
       .replace(/^-+|-+$/g, "").slice(0, 63);
+  }
+
+  // Escapa texto para ponerlo en HTML sin romper la página.
+  function escapar(texto) {
+    return String(texto ?? "")
+      .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;");
   }
 
   // La dirección de la página de un negocio: en la computadora es
@@ -87,84 +157,98 @@
       : "https://" + subdominio + ".locablo.com";
   }
 
-  let negocios = [];
-  let seleccionadoId = null;
-  let creandoEnCurso = false;
-  let borrandoEnCurso = false;
-  let aEliminar = null;       // negocio en proceso de eliminación
-  let temporizador = null;    // el intervalo de la cuenta atrás
-  let segundos = 10;
+  // Colores listos para elegir tocando. Nada de escribir códigos.
+  const COLORES = [
+    { nombre: "Blanco", valor: "#ffffff" },
+    { nombre: "Negro", valor: "#222222" },
+    { nombre: "Verde", valor: "#0a7a3d" },
+    { nombre: "Verde claro", valor: "#e6f4ea" },
+    { nombre: "Amarillo", valor: "#fff4cc" },
+    { nombre: "Naranja", valor: "#f97316" },
+    { nombre: "Rojo", valor: "#b00020" },
+    { nombre: "Azul", valor: "#1565c0" },
+    { nombre: "Rosa", valor: "#fce4ec" },
+    { nombre: "Gris", valor: "#f2f2f2" },
+  ];
 
   const $ = (id) => document.getElementById(id);
+  let negocios = [];
+  let seleccionadoId = null;
+  let piezas = [];            // las piezas del negocio seleccionado
+  let cambiosSinGuardar = false;
+  let creandoEnCurso = false;
+  let guardandoEnCurso = false;
+  let editandoIndice = null;  // qué pieza está abierta en la hoja
 
-  // Carga la lista desde el servidor y la pinta. Sin sesión, vuelve a
-  // la página principal. Si se pasa un id, ese negocio queda seleccionado.
+  // ---------- Negocios: cargar, cambiar, crear ----------
+
+  // Carga la lista desde el servidor. Sin sesión, va al login.
+  // Si se pasa un id (o viene ?negocio= en la dirección), ese negocio
+  // queda seleccionado.
   async function cargarNegocios(seleccionarId) {
     const resp = await fetch("/api/mis-negocios");
-    if (!resp.ok) { window.location.href = "/"; return; }
+    if (resp.status === 401) { window.location.href = "/login.html"; return; }
+    if (!resp.ok) return;
     const dato = await resp.json();
     negocios = dato.negocios || [];
+    const deUrl = new URLSearchParams(location.search).get("negocio");
     if (seleccionarId) {
       seleccionadoId = seleccionarId;
+    } else if (deUrl && negocios.some((n) => n.id === deUrl)) {
+      seleccionadoId = deUrl;
     } else if (!negocios.some((n) => n.id === seleccionadoId)) {
       seleccionadoId = negocios.length > 0 ? negocios[0].id : null;
     }
-    pintarLista();
+    pintarChips();
     await cargarSeleccionado();
   }
 
-  // Pinta "Mis negocios": nombre, subdominio y rol. El seleccionado se
-  // marca. El botón Eliminar solo aparece para el dueño (owner).
-  function pintarLista() {
-    const lista = $("lista-negocios");
-    lista.innerHTML = "";
+  // Pinta "Mis negocios" como fichas en una fila. La seleccionada se marca.
+  // El botón Eliminar solo aparece para el dueño (owner) del negocio elegido.
+  function pintarChips() {
+    const fila = $("chips");
+    fila.innerHTML = "";
     $("sin-negocios").hidden = negocios.length > 0;
     negocios.forEach((n) => {
-      const li = document.createElement("li");
-      if (n.id === seleccionadoId) li.className = "seleccionado";
-      const nombre = document.createElement("span");
-      nombre.textContent = n.name;
-      li.appendChild(nombre);
-      const detalle = document.createElement("span");
-      detalle.className = "rol";
-      detalle.textContent = " — " + n.subdomain + ".locablo.com (" + (n.role === "owner" ? "Propietario" : "Colaborador") + ")";
-      li.appendChild(detalle);
-      if (n.role === "owner") {
-        const btn = document.createElement("button");
-        btn.type = "button";
-        btn.className = "peligro";
-        btn.textContent = "Eliminar";
-        btn.style.marginLeft = "8px";
-        btn.addEventListener("click", (ev) => {
-          ev.stopPropagation();
-          empezarEliminar(n);
-        });
-        li.appendChild(btn);
-      }
-      li.addEventListener("click", () => seleccionar(n.id));
-      lista.appendChild(li);
+      const btn = document.createElement("button");
+      btn.type = "button";
+      if (n.id === seleccionadoId) btn.className = "seleccionado";
+      btn.textContent = n.name + (n.role === "owner" ? "" : " (colaborador)");
+      btn.addEventListener("click", () => seleccionar(n.id));
+      fila.appendChild(btn);
     });
+    const elegido = negocios.find((n) => n.id === seleccionadoId);
+    const btnEliminar = $("btn-eliminar-negocio");
+    btnEliminar.hidden = !(elegido && elegido.role === "owner");
   }
 
-  // Cambia de negocio sin cerrar sesión: actualiza título, dirección,
-  // piezas y el enlace a la página.
+  $("btn-eliminar-negocio").addEventListener("click", () => {
+    const elegido = negocios.find((n) => n.id === seleccionadoId);
+    if (elegido) empezarEliminar(elegido);
+  });
+
+  // Cambia de negocio sin cerrar sesión. Si hay cambios sin guardar,
+  // avisa antes de perderlos.
   async function seleccionar(id) {
     if (id === seleccionadoId) return;
+    if (cambiosSinGuardar && !confirm("Tienes cambios sin guardar. ¿Cambiar de negocio y perderlos?")) return;
     seleccionadoId = id;
-    pintarLista();
+    pintarChips();
     await cargarSeleccionado();
   }
 
+  // Carga el negocio seleccionado y sus piezas en el editor.
   async function cargarSeleccionado() {
     const titulo = $("titulo");
     const direccion = $("direccion");
-    const lista = $("piezas");
     const ver = $("ver");
     const elegido = negocios.find((n) => n.id === seleccionadoId);
     if (!elegido) {
       titulo.textContent = "Mi editor";
       direccion.textContent = "";
-      lista.innerHTML = "<li>No tienes negocios todavía. Crea uno.</li>";
+      piezas = [];
+      cambiosSinGuardar = false;
+      pintarPiezas();
       ver.hidden = true;
       return;
     }
@@ -175,18 +259,14 @@
     titulo.textContent = "Editor de " + dato.negocio.name;
     direccion.textContent = dato.negocio.subdomain + ".locablo.com";
     ver.href = urlNegocio(dato.negocio.subdomain);
-    lista.innerHTML = "";
-    if (!dato.piezas.length) {
-      lista.innerHTML = "<li>Todavía no tienes piezas. Se agregan en el siguiente paso.</li>";
-    } else {
-      dato.piezas.forEach((p) => {
-        const li = document.createElement("li");
-        let datos = {};
-        try { datos = JSON.parse(p.content); } catch (e) {}
-        li.textContent = p.type + ": " + (datos.texto || datos.url || "");
-        lista.appendChild(li);
-      });
-    }
+    piezas = (dato.piezas || []).map((p) => {
+      let datos = {};
+      try { datos = JSON.parse(p.content || "{}"); } catch (e) {}
+      return { type: p.type, content: datos };
+    });
+    cambiosSinGuardar = false;
+    $("mensaje-guardar").textContent = "";
+    pintarPiezas();
   }
 
   // ---------- Crear negocio ----------
@@ -217,9 +297,6 @@
     }, 500);
   });
 
-  // Crear usa la sesión actual: no crea otra cuenta. Mientras la
-  // petición está en curso, el botón queda deshabilitado para que no
-  // se pueda crear dos veces el mismo negocio.
   $("form-crear").addEventListener("submit", async (ev) => {
     ev.preventDefault();
     if (creandoEnCurso) return;
@@ -241,7 +318,7 @@
       if (!resp.ok) { error.textContent = dato.error || "No se pudo crear el negocio."; return; }
       campoNuevo.value = "";
       vistaNuevo.textContent = "Escribe el nombre y aquí verás su dirección.";
-      await cargarNegocios(dato.negocio.id); // la lista crece y el nuevo queda seleccionado
+      await cargarNegocios(dato.negocio.id);
     } catch (e) {
       error.textContent = "No se pudo conectar con el servidor. Inténtalo de nuevo.";
     } finally {
@@ -253,6 +330,11 @@
 
   // ---------- Eliminar negocio (3 confirmaciones) ----------
 
+  let borrandoEnCurso = false;
+  let aEliminar = null;
+  let temporizador = null;
+  let segundos = 10;
+
   function mostrarPaso(n) {
     $("paso-1").hidden = n !== 1;
     $("paso-2").hidden = n !== 2;
@@ -260,13 +342,9 @@
   }
 
   function detenerTemporizador() {
-    if (temporizador !== null) {
-      clearInterval(temporizador);
-      temporizador = null;
-    }
+    if (temporizador !== null) { clearInterval(temporizador); temporizador = null; }
   }
 
-  // Cancela todo el proceso: no se borra nada.
   function cancelarEliminar() {
     detenerTemporizador();
     aEliminar = null;
@@ -277,7 +355,8 @@
     $("error-eliminar").textContent = "";
   }
 
-  // Paso 1: confirmar la intención.
+  // Paso 1: confirmar la intención. El botón "Eliminar este negocio"
+  // aparece arriba, solo para el dueño del negocio elegido.
   function empezarEliminar(negocio) {
     cancelarEliminar();
     aEliminar = negocio;
@@ -289,20 +368,13 @@
 
   $("btn-cancelar-1").addEventListener("click", cancelarEliminar);
   $("btn-cancelar-2").addEventListener("click", cancelarEliminar);
-
-  // Paso 1 → paso 2: escribir el nombre exacto.
   $("btn-si-eliminar").addEventListener("click", () => {
     mostrarPaso(2);
     $("nombre-confirmar").focus();
   });
-
-  // Paso 2: el botón solo se activa cuando lo escrito coincide EXACTO
-  // con el nombre del negocio (mayúsculas y espacios incluidos).
   $("nombre-confirmar").addEventListener("input", () => {
     $("btn-continuar").disabled = $("nombre-confirmar").value !== (aEliminar ? aEliminar.name : "");
   });
-
-  // Paso 2 → paso 3: espera de 10 segundos con "Detener".
   $("btn-continuar").addEventListener("click", () => {
     if (!aEliminar) return;
     mostrarPaso(3);
@@ -311,20 +383,12 @@
     $("btn-detener").disabled = false;
     temporizador = setInterval(() => {
       segundos -= 1;
-      if (segundos <= 0) {
-        detenerTemporizador();
-        confirmarEliminar();
-        return;
-      }
+      if (segundos <= 0) { detenerTemporizador(); confirmarEliminar(); return; }
       $("cuenta-atras").textContent = "Eliminando... " + segundos;
     }, 1000);
   });
-
-  // "Detener" cancela todo: no se borra nada.
   $("btn-detener").addEventListener("click", cancelarEliminar);
 
-  // Solo cuando la cuenta atrás llegó a 0 sin pulsar "Detener" se envía
-  // el borrado al servidor. Mientras va en curso, todo queda deshabilitado.
   async function confirmarEliminar() {
     if (!aEliminar || borrandoEnCurso) return;
     borrandoEnCurso = true;
@@ -341,8 +405,6 @@
         return;
       }
       cancelarEliminar();
-      // Después de borrar, la lista se actualiza: si quedan otros, se
-      // selecciona el primero; si era el último, queda el estado vacío.
       await cargarNegocios();
     } catch (e) {
       $("error-eliminar").textContent = "No se pudo conectar con el servidor. Inténtalo de nuevo.";
@@ -350,6 +412,253 @@
       borrandoEnCurso = false;
     }
   }
+
+  // ---------- Piezas: vista previa en vivo ----------
+
+  // El estilo de una pieza con sus colores (igual que en la página pública).
+  function estiloPieza(datos) {
+    const partes = [];
+    if (datos.color) partes.push("color:" + datos.color);
+    if (datos.fondo) partes.push("background:" + datos.fondo);
+    return partes.length > 0 ? " style=\"" + partes.join(";") + "\"" : "";
+  }
+
+  // Pinta la vista previa y los controles de cada pieza.
+  function pintarPiezas() {
+    const zona = $("vista-piezas");
+    zona.innerHTML = "";
+    $("sin-piezas").hidden = piezas.length > 0;
+    piezas.forEach((pieza, i) => {
+      const tarjeta = document.createElement("div");
+      tarjeta.className = "pieza";
+      const cuerpo = document.createElement("div");
+      if (pieza.type === "titulo") {
+        cuerpo.innerHTML = "<h2" + estiloPieza(pieza.content) + ">" + escapar(pieza.content.texto || "") + "</h2>";
+      } else if (pieza.type === "texto") {
+        cuerpo.innerHTML = "<p" + estiloPieza(pieza.content) + ">" + escapar(pieza.content.texto || "") + "</p>";
+      } else if (pieza.type === "foto") {
+        const fondo = pieza.content.fondo ? " style=\"background:" + pieza.content.fondo + "\"" : "";
+        cuerpo.innerHTML = pieza.content.url
+          ? "<div" + fondo + "><img src=\"" + escapar(pieza.content.url) + "\" alt=\"" + escapar(pieza.content.texto || "") + "\"></div>"
+          : "<p>📷 Sin foto todavía. Toca esta pieza para poner la dirección de la imagen.</p>";
+      } else if (pieza.type === "whatsapp") {
+        cuerpo.innerHTML = "<a class=\"boton-ws\"" + estiloPieza(pieza.content) + " href=\"https://wa.me/" + escapar(pieza.content.telefono || "") + "\">" + escapar(pieza.content.texto || "WhatsApp") + "</a>";
+      }
+      cuerpo.addEventListener("click", () => abrirHoja(i));
+      tarjeta.appendChild(cuerpo);
+
+      const controles = document.createElement("div");
+      controles.className = "controles";
+      const subir = document.createElement("button");
+      subir.type = "button";
+      subir.textContent = "↑ Subir";
+      subir.disabled = i === 0;
+      subir.addEventListener("click", () => moverPieza(i, -1));
+      controles.appendChild(subir);
+      const bajar = document.createElement("button");
+      bajar.type = "button";
+      bajar.textContent = "↓ Bajar";
+      bajar.disabled = i === piezas.length - 1;
+      bajar.addEventListener("click", () => moverPieza(i, 1));
+      controles.appendChild(bajar);
+      const borrar = document.createElement("button");
+      borrar.type = "button";
+      borrar.className = "borrar";
+      borrar.textContent = "✕ Borrar";
+      borrar.addEventListener("click", () => borrarPieza(i));
+      controles.appendChild(borrar);
+      tarjeta.appendChild(controles);
+
+      const toca = document.createElement("p");
+      toca.className = "toca";
+      toca.textContent = "Toca la pieza para cambiar su texto o sus colores.";
+      tarjeta.appendChild(toca);
+      zona.appendChild(tarjeta);
+    });
+  }
+
+  function moverPieza(i, paso) {
+    const j = i + paso;
+    if (j < 0 || j >= piezas.length) return;
+    const tmp = piezas[i];
+    piezas[i] = piezas[j];
+    piezas[j] = tmp;
+    cambiosSinGuardar = true;
+    pintarPiezas();
+  }
+
+  function borrarPieza(i) {
+    piezas.splice(i, 1);
+    cambiosSinGuardar = true;
+    pintarPiezas();
+  }
+
+  // Agregar piezas nuevas con textos de ejemplo.
+  $("btn-titulo").addEventListener("click", () => {
+    piezas.push({ type: "titulo", content: { texto: "Mi título" } });
+    cambiosSinGuardar = true;
+    pintarPiezas();
+    abrirHoja(piezas.length - 1);
+  });
+  $("btn-texto").addEventListener("click", () => {
+    piezas.push({ type: "texto", content: { texto: "Escribe aquí lo que hace tu negocio." } });
+    cambiosSinGuardar = true;
+    pintarPiezas();
+    abrirHoja(piezas.length - 1);
+  });
+  $("btn-foto").addEventListener("click", () => {
+    piezas.push({ type: "foto", content: { url: "", texto: "" } });
+    cambiosSinGuardar = true;
+    pintarPiezas();
+    abrirHoja(piezas.length - 1);
+  });
+  $("btn-whatsapp").addEventListener("click", () => {
+    piezas.push({ type: "whatsapp", content: { telefono: "", texto: "Escríbeme por WhatsApp" } });
+    cambiosSinGuardar = true;
+    pintarPiezas();
+    abrirHoja(piezas.length - 1);
+  });
+
+  // ---------- Guardar ----------
+
+  $("btn-guardar").addEventListener("click", async () => {
+    if (guardandoEnCurso) return;
+    const mensaje = $("mensaje-guardar");
+    mensaje.className = "";
+    mensaje.textContent = "";
+    if (!seleccionadoId) { mensaje.className = "error"; mensaje.textContent = "Primero crea o elige un negocio."; return; }
+    guardandoEnCurso = true;
+    const btn = $("btn-guardar");
+    btn.disabled = true;
+    btn.textContent = "Guardando…";
+    try {
+      const resp = await fetch("/api/negocios/" + encodeURIComponent(seleccionadoId) + "/piezas", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          piezas: piezas.map((p) => ({ type: p.type, content: JSON.stringify(p.content) }))
+        })
+      });
+      const dato = await resp.json();
+      if (!resp.ok) { mensaje.className = "error"; mensaje.textContent = dato.error || "No se pudo guardar."; return; }
+      cambiosSinGuardar = false;
+      mensaje.className = "ok";
+      mensaje.textContent = "Guardado. Ya se ve en tu página.";
+    } catch (e) {
+      mensaje.className = "error";
+      mensaje.textContent = "No se pudo conectar con el servidor. Inténtalo de nuevo.";
+    } finally {
+      guardandoEnCurso = false;
+      btn.disabled = false;
+      btn.textContent = "Guardar mi página";
+    }
+  });
+
+  // ---------- Hoja inferior: editar una pieza ----------
+
+  // Una fila de muestras de color para elegir tocando.
+  function grupoMuestras(titulo, campo, valorActual, alElegir) {
+    const cont = document.createElement("div");
+    const et = document.createElement("label");
+    et.textContent = titulo;
+    cont.appendChild(et);
+    const fila = document.createElement("div");
+    fila.className = "muestras";
+    const sinColor = document.createElement("button");
+    sinColor.type = "button";
+    sinColor.className = "muestra sin-color" + (!valorActual ? " elegida" : "");
+    sinColor.textContent = "Sin color";
+    sinColor.addEventListener("click", () => { alElegir(""); cerrarYRefrescarHoja(); });
+    fila.appendChild(sinColor);
+    COLORES.forEach((c) => {
+      const b = document.createElement("button");
+      b.type = "button";
+      b.className = "muestra" + (valorActual === c.valor ? " elegida" : "");
+      b.style.background = c.valor;
+      b.title = c.nombre;
+      b.setAttribute("aria-label", c.nombre);
+      b.addEventListener("click", () => { alElegir(c.valor); cerrarYRefrescarHoja(); });
+      fila.appendChild(b);
+    });
+    cont.appendChild(fila);
+    return cont;
+  }
+
+  // Vuelve a abrir la hoja después de elegir un color, para marcarlo.
+  function cerrarYRefrescarHoja() {
+    const i = editandoIndice;
+    cerrarHoja();
+    if (i !== null) abrirHoja(i);
+  }
+
+  function abrirHoja(i) {
+    editandoIndice = i;
+    const pieza = piezas[i];
+    const campos = $("hoja-campos");
+    campos.innerHTML = "";
+    const titulos = { titulo: "Editar título", texto: "Editar texto", foto: "Editar foto", whatsapp: "Editar WhatsApp" };
+    $("hoja-titulo").textContent = titulos[pieza.type] || "Editar pieza";
+
+    function campoTexto(etiqueta, valor, maximo, alCambiar, multilinea) {
+      const lab = document.createElement("label");
+      lab.textContent = etiqueta;
+      campos.appendChild(lab);
+      const input = multilinea ? document.createElement("textarea") : document.createElement("input");
+      input.type = "text";
+      input.value = valor || "";
+      if (maximo) input.maxLength = maximo;
+      input.addEventListener("input", () => { alCambiar(input.value); cambiosSinGuardar = true; });
+      campos.appendChild(input);
+      if (maximo) {
+        const ayuda = document.createElement("p");
+        ayuda.style.cssText = "color:#555;font-size:14px;margin:4px 0 0";
+        ayuda.textContent = "Máximo " + maximo + " letras.";
+        campos.appendChild(ayuda);
+      }
+      return input;
+    }
+
+    if (pieza.type === "titulo") {
+      campoTexto("El título", pieza.content.texto, 60, (v) => { pieza.content.texto = v; });
+      campos.appendChild(grupoMuestras("Color del texto", "color", pieza.content.color, (v) => { pieza.content.color = v; }));
+      campos.appendChild(grupoMuestras("Color de fondo", "fondo", pieza.content.fondo, (v) => { pieza.content.fondo = v; }));
+    } else if (pieza.type === "texto") {
+      campoTexto("El texto", pieza.content.texto, 200, (v) => { pieza.content.texto = v; }, true);
+      campos.appendChild(grupoMuestras("Color del texto", "color", pieza.content.color, (v) => { pieza.content.color = v; }));
+      campos.appendChild(grupoMuestras("Color de fondo", "fondo", pieza.content.fondo, (v) => { pieza.content.fondo = v; }));
+    } else if (pieza.type === "foto") {
+      campoTexto("Dirección de la imagen (http:// o https://)", pieza.content.url, 0, (v) => { pieza.content.url = v; });
+      campoTexto("Descripción de la foto", pieza.content.texto, 200, (v) => { pieza.content.texto = v; });
+      campos.appendChild(grupoMuestras("Color de fondo", "fondo", pieza.content.fondo, (v) => { pieza.content.fondo = v; }));
+    } else if (pieza.type === "whatsapp") {
+      const lab = document.createElement("label");
+      lab.textContent = "Número de WhatsApp (solo números, con código de país si quieres)";
+      campos.appendChild(lab);
+      const tel = document.createElement("input");
+      tel.type = "tel";
+      tel.inputMode = "numeric";
+      tel.value = pieza.content.telefono || "";
+      tel.placeholder = "Por ejemplo: 528991234567";
+      tel.addEventListener("input", () => { pieza.content.telefono = tel.value.replace(/[^0-9]/g, ""); tel.value = pieza.content.telefono; cambiosSinGuardar = true; });
+      campos.appendChild(tel);
+      campoTexto("Lo que dice el botón", pieza.content.texto, 200, (v) => { pieza.content.texto = v; });
+      campos.appendChild(grupoMuestras("Color del texto", "color", pieza.content.color, (v) => { pieza.content.color = v; }));
+      campos.appendChild(grupoMuestras("Color de fondo", "fondo", pieza.content.fondo, (v) => { pieza.content.fondo = v; }));
+    }
+
+    $("fondo-hoja").hidden = false;
+    $("hoja").hidden = false;
+  }
+
+  function cerrarHoja() {
+    editandoIndice = null;
+    $("fondo-hoja").hidden = true;
+    $("hoja").hidden = true;
+    pintarPiezas();
+  }
+
+  $("hoja-listo").addEventListener("click", cerrarHoja);
+  $("fondo-hoja").addEventListener("click", cerrarHoja);
 
   // ---------- Arranque ----------
 

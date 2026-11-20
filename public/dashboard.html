@@ -1,0 +1,186 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Mis negocios — Locablo</title>
+<style>
+  body { font-family: system-ui, sans-serif; margin: 0; padding: 16px; color: #222; background: #fff; }
+  main { max-width: 640px; margin: 0 auto; }
+  header { display: flex; justify-content: space-between; align-items: center; padding: 8px 0 16px; }
+  header .logo { font-size: 24px; font-weight: 800; color: #0a7a3d; }
+  header button { width: auto; min-height: 44px; margin-top: 0; padding: 10px 16px; font-size: 15px; }
+  h1 { font-size: 28px; margin: 16px 0 8px; }
+  h2 { font-size: 22px; margin: 32px 0 8px; }
+  h3 { font-size: 20px; margin: 0 0 4px; }
+  p { font-size: 17px; line-height: 1.5; }
+  label { display: block; margin: 16px 0 6px; font-weight: 700; }
+  input { width: 100%; min-height: 48px; padding: 14px; font-size: 17px; border: 1px solid #999; border-radius: 10px; box-sizing: border-box; }
+  button { display: block; width: 100%; min-height: 48px; padding: 14px 20px; font-size: 17px; font-weight: 700; border: 0; border-radius: 10px; background: #0a7a3d; color: #fff; cursor: pointer; margin-top: 16px; }
+  button:disabled { opacity: .5; }
+  a.boton { display: block; width: 100%; min-height: 48px; padding: 14px 20px; font-size: 17px; font-weight: 700; border: 0; border-radius: 10px; background: #0a7a3d; color: #fff; text-align: center; text-decoration: none; box-sizing: border-box; margin-top: 12px; }
+  a.boton.secundario { background: #fff; color: #0a7a3d; border: 2px solid #0a7a3d; }
+  .tarjeta { border: 1px solid #ddd; border-radius: 16px; padding: 16px; margin-bottom: 12px; }
+  .tarjeta .direccion { color: #0a7a3d; font-weight: 700; word-break: break-all; }
+  .tarjeta .rol { color: #555; font-size: 14px; }
+  .vista { margin-top: 12px; padding: 12px; background: #f2f2f2; border-radius: 10px; }
+  .libre { color: #0a7a3d; font-weight: 700; }
+  .ocupado { color: #b00020; font-weight: 700; }
+  .error { color: #b00020; }
+  .vacio { border: 2px dashed #ccc; border-radius: 16px; padding: 24px 16px; text-align: center; color: #555; }
+  .vacio p { margin: 4px 0; }
+</style>
+</head>
+<body>
+<main>
+  <header>
+    <span class="logo">Locablo</span>
+    <button id="salir" type="button">Salir</button>
+  </header>
+
+  <h1>Mis negocios</h1>
+
+  <div id="lista"></div>
+  <div id="vacio" class="vacio" hidden>
+    <p>🏪</p>
+    <p><b>Todavía no tienes negocios.</b></p>
+    <p>Crea tu primer negocio aquí abajo y tendrá su propia página en internet.</p>
+  </div>
+
+  <h2>Crear negocio</h2>
+  <form id="form-crear">
+    <label for="nombre-nuevo">Nombre del negocio nuevo</label>
+    <input id="nombre-nuevo" type="text" placeholder="Por ejemplo: Panadería La Esquina" autocomplete="off">
+    <div class="vista" id="vista-nuevo">Escribe el nombre y aquí verás su dirección.</div>
+    <p id="error-crear" class="error"></p>
+    <button id="btn-crear" type="submit">Crear negocio</button>
+  </form>
+</main>
+<script>
+  // Convierte el nombre en subdominio: minúsculas, sin acentos, guiones.
+  function aSubdominio(nombre) {
+    return (nombre || "").toLowerCase()
+      .normalize("NFD").replace(/[\u0300-\u036f]/g, "")
+      .replace(/[^a-z0-9]+/g, "-")
+      .replace(/^-+|-+$/g, "").slice(0, 63);
+  }
+
+  // La dirección de la página de un negocio: en la computadora es
+  // <subdominio>.localhost; en internet, <subdominio>.locablo.com.
+  function urlNegocio(subdominio) {
+    const esLocal = location.hostname === "localhost" || location.hostname.endsWith(".localhost");
+    return esLocal
+      ? "http://" + subdominio + ".localhost:" + location.port
+      : "https://" + subdominio + ".locablo.com";
+  }
+
+  const $ = (id) => document.getElementById(id);
+  let creandoEnCurso = false;
+
+  // Carga los negocios. Sin sesión, vuelve al login.
+  async function cargarNegocios() {
+    const resp = await fetch("/api/mis-negocios");
+    if (resp.status === 401) { window.location.href = "/login.html"; return; }
+    if (!resp.ok) { $("lista").innerHTML = "<p class='error'>No se pudieron cargar tus negocios. Inténtalo de nuevo.</p>"; return; }
+    const dato = await resp.json();
+    const negocios = dato.negocios || [];
+    $("vacio").hidden = negocios.length > 0;
+    const lista = $("lista");
+    lista.innerHTML = "";
+    negocios.forEach((n) => {
+      const tarjeta = document.createElement("div");
+      tarjeta.className = "tarjeta";
+      const titulo = document.createElement("h3");
+      titulo.textContent = n.name;
+      tarjeta.appendChild(titulo);
+      const dir = document.createElement("p");
+      dir.className = "direccion";
+      dir.textContent = n.subdomain + ".locablo.com";
+      tarjeta.appendChild(dir);
+      const rol = document.createElement("p");
+      rol.className = "rol";
+      rol.textContent = n.role === "owner" ? "Eres el propietario" : "Eres colaborador";
+      tarjeta.appendChild(rol);
+      const ver = document.createElement("a");
+      ver.className = "boton";
+      ver.textContent = "Ver página";
+      ver.href = urlNegocio(n.subdomain);
+      ver.target = "_blank";
+      tarjeta.appendChild(ver);
+      const editar = document.createElement("a");
+      editar.className = "boton secundario";
+      editar.textContent = "Editar";
+      editar.href = "/editor?negocio=" + encodeURIComponent(n.id);
+      tarjeta.appendChild(editar);
+      lista.appendChild(tarjeta);
+    });
+  }
+
+  // Revisión en vivo de la dirección del negocio nuevo.
+  const campoNuevo = $("nombre-nuevo");
+  const vistaNuevo = $("vista-nuevo");
+  let tiempoVista = null;
+  campoNuevo.addEventListener("input", () => {
+    const subdominio = aSubdominio(campoNuevo.value);
+    if (!subdominio) { vistaNuevo.textContent = "Escribe el nombre y aquí verás su dirección."; return; }
+    vistaNuevo.innerHTML = "Tu dirección será: <b>" + subdominio + ".locablo.com</b><br>Revisando si está libre…";
+    clearTimeout(tiempoVista);
+    tiempoVista = setTimeout(async () => {
+      try {
+        const resp = await fetch("/api/disponible", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ subdomain: subdominio })
+        });
+        const dato = await resp.json();
+        vistaNuevo.innerHTML = dato.libre
+          ? "Tu dirección será: <b>" + dato.subdomain + ".locablo.com</b><br><span class='libre'>Está libre.</span>"
+          : "Tu dirección sería: <b>" + dato.subdomain + ".locablo.com</b><br><span class='ocupado'>" + (dato.motivo || "Ya está ocupado. Prueba con otro nombre.") + "</span>";
+      } catch (e) {
+        vistaNuevo.innerHTML = "Tu dirección será: <b>" + subdominio + ".locablo.com</b><br>(Aún no se pudo revisar si está libre.)";
+      }
+    }, 500);
+  });
+
+  // Crear negocio con la sesión actual (no crea otra cuenta).
+  $("form-crear").addEventListener("submit", async (ev) => {
+    ev.preventDefault();
+    if (creandoEnCurso) return;
+    const error = $("error-crear");
+    error.textContent = "";
+    const nombre = campoNuevo.value.trim();
+    if (!nombre) { error.textContent = "Escribe el nombre del negocio."; return; }
+    creandoEnCurso = true;
+    const btn = $("btn-crear");
+    btn.disabled = true;
+    btn.textContent = "Creando…";
+    try {
+      const resp = await fetch("/api/negocios", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name: nombre })
+      });
+      if (resp.status === 401) { window.location.href = "/login.html"; return; }
+      const dato = await resp.json();
+      if (!resp.ok) { error.textContent = dato.error || "No se pudo crear el negocio."; return; }
+      campoNuevo.value = "";
+      vistaNuevo.textContent = "Escribe el nombre y aquí verás su dirección.";
+      await cargarNegocios();
+    } catch (e) {
+      error.textContent = "No se pudo conectar con el servidor. Inténtalo de nuevo.";
+    } finally {
+      creandoEnCurso = false;
+      btn.disabled = false;
+      btn.textContent = "Crear negocio";
+    }
+  });
+
+  $("salir").addEventListener("click", async () => {
+    await fetch("/api/salir", { method: "POST" });
+    window.location.href = "/";
+  });
+
+  cargarNegocios();
+</script>
+</body>
+</html>
