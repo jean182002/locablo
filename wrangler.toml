@@ -3,6 +3,7 @@
 name = "locablo"
 main = "src/worker.js"
 compatibility_date = "2026-11-11"
+workers_dev = true
 
 # Ruta para todos los subdominios: tienda1.locablo.com, taqueria.locablo.com...
 # La zona locablo.com tiene que estar en Cloudflare (nameservers apuntados).
@@ -28,7 +29,7 @@ run_worker_first = true
 [[d1_databases]]
 binding = "DB"
 database_name = "locablo"
-database_id = "PONER-AQUI-EL-ID-DE-LA-BASE-D1"
+database_id = "953ccd00-adc2-41be-9448-a7ab16acca16"
 # Las migraciones viven en la carpeta migrations/ y se aplican con:
 #   npx wrangler d1 migrations apply locablo
 migrations_dir = "migrations"
